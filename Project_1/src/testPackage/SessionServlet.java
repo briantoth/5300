@@ -1,6 +1,7 @@
 package testPackage; // Always use packages. Never use default package.
 
 import java.io.IOException;
+import java.io.PrintWriter;
 import java.util.Date;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -76,9 +77,21 @@ public class SessionServlet extends HttpServlet {
 				
 		 
 
-private void logout(HttpServletRequest request, HttpServletResponse response) {
-	// TODO Auto-generated method stub
-	
+private void logout(HttpServletRequest request, HttpServletResponse response, String sessionID) {
+	// remove session from session table
+	sessionMap.remove(sessionID);
+	response.setContentType("text/html");
+	try {
+		PrintWriter out = response.getWriter();
+		out.println("<!DOCTYPE html>\n" +
+				"<html>\n" +
+				"<head><title>Bye!</title></head>\n" +
+				"<body>\n" +
+				"<h1>Bye!</h1>\n" +
+				"</body></html>");
+	} catch (IOException e) {
+		// TODO do nothing?
+	}
 }
 
 private Cookie newSessionState(HttpServletRequest request, HttpServletResponse response) {
