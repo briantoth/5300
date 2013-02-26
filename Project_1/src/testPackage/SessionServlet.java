@@ -26,12 +26,18 @@ import coreservlets.ServletUtilities;
 @WebServlet("/session")
 public class SessionServlet extends HttpServlet {
   private static long nextSessionID = 0;
+  
+  //Number of milliseconds before session expires
+  private static final long SESSION_EXPIRATION_TIME = 60 * 60 * 1000;
+  
   private static final String COOKIE_NAME = "CS5300_WJK56_DRM237_BDT25";
+  private static final String DEFAULT_MESSAGE = "Hello, User!";
   private String serverName;
+  
   private ConcurrentHashMap<String, SessionData> sessionMap;
   
   public SessionServlet(){
-	  this.serverName= "Server 1";
+	  this("Server 1");
   }
 	
   public SessionServlet(String serverName) {
@@ -49,27 +55,36 @@ public class SessionServlet extends HttpServlet {
       throws ServletException, IOException {
 	  
 	  Cookie[] cookies = request.getCookies();
-	  String cmd = request.getParameter("command");
-	  
-	  String sessionID= "hello";
+	  String cmd = request.getParameter("cmd");
 	  
 	  if(cookies == null) {
-		  Cookie cookie = newSessionState(request, response);
+		  System.out.println("cookies is null");
+		  String sessionID = newSessionState(request, response);
 		  refresh(request, response, sessionID);
 	  	  return;
 	  }
 	  else {
 		  for(Cookie cookie : cookies) {
 			  if(COOKIE_NAME.equals(cookie.getName())) {
-				  if(cmd == null || cmd.equals("refresh")) {
+				  String sessionID = SessionData.getSessionID(cookie);
+				  
+				  System.out.println(sessionID);
+				  if(!sessionMap.containsKey(sessionID)){
+					  System.out.println(sessionID);
+					  sessionID = newSessionState(request, response);
 					  refresh(request, response, sessionID);
 					  return;
-				  } else if(cmd.equals("replace")) {
-					  replace(request, response, cookie);
+				  }
+				  
+				  if(cmd == null || cmd.equals("Refresh")) {
+					  refresh(request, response, sessionID);
+					  return;
+				  } else if(cmd.equals("Replace")) {
+					  replace(request, response, sessionID);
 				  	  refresh(request, response, sessionID);
 				  	  return;
-				  } else if(cmd.equals("logout")) {
-					  logout(request, response);
+				  } else if(cmd.equals("LogOut")) {
+					  logout(request, response, sessionID);
 					  return;
 				  }
 			  }
@@ -79,44 +94,65 @@ public class SessionServlet extends HttpServlet {
 	  //If we got here than there are cookies, but none with
 	  //the name COOKIE_NAME, so we need to create a new session
 	  
-	  Cookie cookie = newSessionState(request, response);
+	  String sessionID = newSessionState(request, response);
 	  refresh(request, response, sessionID);
   }
-				
-		 
 
-private void logout(HttpServletRequest request, HttpServletResponse response) {
-	// TODO Auto-generated method stub
+/** Creates a new SessionData object and stores it in the sessionMap */
+private String newSessionState(HttpServletRequest request, HttpServletResponse response) {
+	SessionData session = new SessionData();
+	session.sessionID = serverName + nextSessionID++;
+	session.version = 1;
+	session.message = DEFAULT_MESSAGE;
+	session.expiration_timestamp = new Date(new Date().getTime() + SESSION_EXPIRATION_TIME);
 	
+	sessionMap.put(session.sessionID, session);
+	return session.sessionID;
 }
 
-private Cookie newSessionState(HttpServletRequest request, HttpServletResponse response) {
-	
-	return null;
-	
+private void logout(HttpServletRequest request, HttpServletResponse response, String sessionID) {
+	// remove session from session table
+	sessionMap.remove(sessionID);
+	response.setContentType("text/html");
+	try {
+		PrintWriter out = response.getWriter();
+		out.println("<!DOCTYPE html>\n" +
+				"<html>\n" +
+				"<head><title>Bye!</title></head>\n" +
+				"<body>\n" +
+				"<h1>Bye!</h1>\n" +
+				"</body></html>");
+	} catch (IOException e) {
+		// TODO do nothing?
+	}
 }
 
-private void replace(HttpServletRequest request, HttpServletResponse response, Cookie cookie) {
-	// TODO Auto-generated method stub
+
+private void replace(HttpServletRequest request, HttpServletResponse response, String sessionID) {
+	SessionData session = sessionMap.get(sessionID);
+	String newMessage = request.getParameter("new_message");
 	
+	//In case there is no new_message parameter in the request
+	//This really shouldn't happen
+	newMessage = newMessage == null ? "" : newMessage;
+	System.out.println(newMessage);
+	
+	session.message = newMessage;
 }
+
 
 private void refresh(HttpServletRequest request, HttpServletResponse response, String sessionID) throws IOException {
 
 	response.setContentType("text/html");
 	PrintWriter out = response.getWriter();
-	SessionData sd= new SessionData();
-	sd.message= "hi";
-	sd.expiration_timestamp= new Date();
-	sd.sessionID= "sldfj";
-	//SessionData sd= sessionMap.get(sessionID);
+	SessionData sd= sessionMap.get(sessionID);
 	out.println
 	(ServletUtilities.headWithTitle("Hello user") +
 			"<body bgcolor=\"#fdf5e6\">\n" +
 			"<h1>" + sd.message + "</h1>\n" +
 			"<form action='session' method='GET'>" +
 			"<input type='submit' value='Replace' name='cmd'>" +
-			"<input type='text' maxlength='512' size='40' name='NewText'>" +
+			"<input type='text' maxlength='512' size='40' name='new_message'>" +
 			"</form>" +			
 			"<form action='session' method='GET'>" +
 			"<input type='submit' value='Refresh' name='cmd'>" +
@@ -127,12 +163,31 @@ private void refresh(HttpServletRequest request, HttpServletResponse response, S
 			"<br> Session on: " + request.getLocalAddr() + ":" +request.getServerPort() +
 			"<br> Expires: " + sd.expiration_timestamp +
 			"</body></html>");
+	
+	sd.version++;
+	//reset expiration of session
+	sd.expiration_timestamp = new Date(new Date().getTime() + SESSION_EXPIRATION_TIME);
+	response.addCookie(new Cookie(COOKIE_NAME, sd.packageCookie(serverName)));
 }
+
 
 public static class SessionData {
 	public String sessionID;
 	public int version;
 	public String message;
 	public Date expiration_timestamp;
+	
+	public String packageCookie(String serverName) {
+		String value = "";
+		value += this.sessionID;
+		value += ",";
+		value += String.valueOf(this.version);
+		return value;
+	}
+	
+	public static String getSessionID(Cookie cookie) {
+		return cookie.getValue().split(",")[0];
+	}
 }
+
 }
