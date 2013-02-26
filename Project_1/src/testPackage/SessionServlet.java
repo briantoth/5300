@@ -23,12 +23,13 @@ import coreservlets.ServletUtilities;
  *  Ajax, jQuery, GWT, Spring, Hibernate/JPA, Hadoop, and Java programming</a>.
  */
 
-@WebServlet("/session")
+@WebServlet("/")
 public class SessionServlet extends HttpServlet {
   private static long nextSessionID = 0;
   
   //Number of milliseconds before session expires
-  private static final long SESSION_EXPIRATION_TIME = 60 * 60 * 1000;
+  private static final long SESSION_EXPIRATION_TIME = 60 * 1000;
+  private static final long CLEANUP_TIMEOUT = 5 * 1000;
   
   private static final String COOKIE_NAME = "CS5300_WJK56_DRM237_BDT25";
   private static final String DEFAULT_MESSAGE = "Hello, User!";
@@ -49,8 +50,11 @@ public class SessionServlet extends HttpServlet {
 		  this.serverName = "Server 1";
 	  else
 		  this.serverName = serverName;
+	  
 	  cleanupDaemon = new Thread(new SessionTableCleaner());
+	  System.out.println("Starting daemon");
 	  cleanupDaemon.setDaemon(true);
+	  cleanupDaemon.start();
   }
   
   @Override
@@ -105,7 +109,7 @@ public class SessionServlet extends HttpServlet {
 /** Creates a new SessionData object and stores it in the sessionMap */
 private String newSessionState(HttpServletRequest request, HttpServletResponse response) {
 	SessionData session = new SessionData();
-	session.sessionID = serverName + nextSessionID++;
+	session.sessionID = serverName + "-" + nextSessionID++;
 	session.version = 1;
 	session.message = DEFAULT_MESSAGE;
 	session.expiration_timestamp = new Date(new Date().getTime() + SESSION_EXPIRATION_TIME);
@@ -198,9 +202,18 @@ private class SessionTableCleaner implements Runnable {
 	
 	@Override
 	public void run() {
-		for (SessionData session : sessionMap.values()) {
-			if (session.expiration_timestamp.before(new Date())) 
-				sessionMap.remove(session.sessionID);
+		while(true) {
+			for (SessionData session : sessionMap.values()) {
+				if (session.expiration_timestamp.before(new Date())) 
+					sessionMap.remove(session.sessionID);
+			}
+			
+			try {
+				Thread.sleep(CLEANUP_TIMEOUT);
+			} catch (InterruptedException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
 		}
 	}
 }
