@@ -1,6 +1,7 @@
 package testPackage; // Always use packages. Never use default package.
 
 import java.io.IOException;
+import java.io.PrintWriter;
 import java.util.Date;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -58,7 +59,8 @@ public class SessionServlet extends HttpServlet {
 	  else {
 		  for(Cookie cookie : cookies) {
 			  if(COOKIE_NAME.equals(cookie.getName())) {
-				  String sessionID = SessionData.getSessionIDFromCookie(cookie);
+				  String sessionID = SessionData.getSessionID(cookie);
+				  
 				  if(cmd == null || cmd.equals("refresh")) {
 					  refresh(request, response, sessionID);
 					  return;
@@ -67,7 +69,7 @@ public class SessionServlet extends HttpServlet {
 				  	  refresh(request, response, sessionID);
 				  	  return;
 				  } else if(cmd.equals("logout")) {
-					  logout(request, response);
+					  logout(request, response, sessionID);
 					  return;
 				  }
 			  }
@@ -83,9 +85,6 @@ public class SessionServlet extends HttpServlet {
 				
 		 
 
-private void logout(HttpServletRequest request, HttpServletResponse response) {
-	// TODO Auto-generated method stub
-}
 
 
 /** Creates a new SessionData object and stores it in the sessionMap */
@@ -98,8 +97,25 @@ private String newSessionState(HttpServletRequest request, HttpServletResponse r
 	
 	sessionMap.put(session.sessionID, session);
 	return session.sessionID;
-	
 }
+
+private void logout(HttpServletRequest request, HttpServletResponse response, String sessionID) {
+	// remove session from session table
+	sessionMap.remove(sessionID);
+	response.setContentType("text/html");
+	try {
+		PrintWriter out = response.getWriter();
+		out.println("<!DOCTYPE html>\n" +
+				"<html>\n" +
+				"<head><title>Bye!</title></head>\n" +
+				"<body>\n" +
+				"<h1>Bye!</h1>\n" +
+				"</body></html>");
+	} catch (IOException e) {
+		// TODO do nothing?
+	}
+}
+
 
 private void replace(HttpServletRequest request, HttpServletResponse response, String sessionID) {
 	SessionData session = sessionMap.get(sessionID);
@@ -117,12 +133,24 @@ private void refresh(HttpServletRequest request, HttpServletResponse response, S
 	
 }
 
-	public static class SessionData {
-		public String sessionID;
-		public int version;
-		public String message;
-		public Date expiration_timestamp;
-		
-		
+
+public static class SessionData {
+	public String sessionID;
+	public int version;
+	public String message;
+	public Date expiration_timestamp;
+	
+	public String packageCookie() {
+		String value = "";
+		value += this.sessionID;
+		value += ",";
+		value += String.valueOf(this.version);
+		return value;
 	}
+	
+	public static String getSessionID(Cookie cookie) {
+		return cookie.getValue().split(",")[0];
+	}
+}
+
 }
