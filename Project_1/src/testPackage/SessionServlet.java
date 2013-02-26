@@ -12,8 +12,6 @@ import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import coreservlets.ServletUtilities;
-
 /** Very simplistic servlet that generates plain text.
  *  Uses the @WebServlet annotation that is supported by
  *  Tomcat 7 and other servlet 3.0 containers. 
@@ -151,22 +149,24 @@ public class SessionServlet extends HttpServlet {
 		response.setContentType("text/html");
 		PrintWriter out = response.getWriter();
 		SessionData sd= sessionMap.get(sessionID);
-		out.println
-		(ServletUtilities.headWithTitle("Hello user") +
-				"<body bgcolor=\"#fdf5e6\">\n" +
-				"<h1>" + sd.message + "</h1>\n" +
-				"<form action='session' method='GET'>" +
-				"<input type='submit' value='Replace' name='cmd'>" +
-				"<input type='text' maxlength='512' size='40' name='new_message'>" +
-				"</form>" +			
-				"<form action='session' method='GET'>" +
-				"<input type='submit' value='Refresh' name='cmd'>" +
-				"</form>" +			
-				"<form action='session' method='GET'>" +
-				"<input type='submit' value='LogOut' name='cmd'>" +
-				"</form>" +
-				"<br> Session on: " + request.getLocalAddr() + ":" +request.getServerPort() +
-				"<br> Expires: " + sd.expiration_timestamp +
+		out.println(
+				"<!DOCTYPE html>\n" +
+						"<html>\n" +
+						"<head><title> Hello user </title></head>\n" +
+						"<body bgcolor=\"#fdf5e6\">\n" +
+						"<h1>" + sd.message + "</h1>\n" +
+						"<form action='session' method='GET'>" +
+						"<input type='submit' value='Replace' name='cmd'>" +
+						"<input type='text' maxlength='512' size='40' name='new_message'>" +
+						"</form>" +			
+						"<form action='session' method='GET'>" +
+						"<input type='submit' value='Refresh' name='cmd'>" +
+						"</form>" +			
+						"<form action='session' method='GET'>" +
+						"<input type='submit' value='LogOut' name='cmd'>" +
+						"</form>" +
+						"<br> Session on: " + request.getLocalAddr() + ":" +request.getServerPort() +
+						"<br> Expires: " + sd.expiration_timestamp +
 				"</body></html>");
 
 		sd.version++;
