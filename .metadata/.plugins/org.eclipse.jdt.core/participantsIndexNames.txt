@@ -1,0 +1,5 @@
+INDEX VERSION 1.126
+/home/brian/dev/5300/java/.metadata/.plugins/org.eclipse.jst.jsp.core/jspsearch/1518164054.index
+/test-app/src
+/home/brian/dev/5300/java/.metadata/.plugins/org.eclipse.jst.jsp.core/jspsearch/931966938.index
+/Project_1/src
