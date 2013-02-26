@@ -27,6 +27,7 @@ public class SessionServlet extends HttpServlet {
   private static final String COOKIE_NAME = "CS5300_WJK56_DRM237_BDT25";
   private String serverName;
   private ConcurrentHashMap<String, SessionData> sessionMap;
+  private Thread cleanupDaemon;
 	
   public SessionServlet(String serverName) {
 	  super();
@@ -35,6 +36,8 @@ public class SessionServlet extends HttpServlet {
 		  this.serverName = "Server 1";
 	  else
 		  this.serverName = serverName;
+	  cleanupDaemon = new Thread(new SessionTableCleaner());
+	  cleanupDaemon.setDaemon(true);
   }
   
   @Override
@@ -127,4 +130,16 @@ public static class SessionData {
 		return cookie.split(",")[0];
 	}
 }
+
+private class SessionTableCleaner implements Runnable {
+	
+	@Override
+	public void run() {
+		for (SessionData session : sessionMap.values()) {
+			if (session.expiration_timestamp.before(new Date())) 
+				sessionMap.remove(session.sessionID);
+		}
+	}
+}
+
 }
