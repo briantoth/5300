@@ -23,8 +23,14 @@ import javax.servlet.http.HttpServletResponse;
 @WebServlet("/session")
 public class SessionServlet extends HttpServlet {
   private static long nextSessionID = 0;
+  
+  //Number of milliseconds before session expires
+  private static final long SESSION_EXPIRATION_TIME = 60 * 60 * 1000;
+  
   private static final String COOKIE_NAME = "CS5300_WJK56_DRM237_BDT25";
+  private static final String DEFAULT_MESSAGE = "Hello, User!";
   private String serverName;
+  
   private ConcurrentHashMap<String, SessionData> sessionMap;
 	
   public SessionServlet(String serverName) {
@@ -45,19 +51,20 @@ public class SessionServlet extends HttpServlet {
 	  String cmd = request.getParameter("command");
 	  
 	  if(cookies == null) {
-		  Cookie cookie = newSessionState(request, response);
-		  refresh(request, response, cookie);
+		  String sessionID = newSessionState(request, response);
+		  refresh(request, response, sessionID);
 	  	  return;
 	  }
 	  else {
 		  for(Cookie cookie : cookies) {
 			  if(COOKIE_NAME.equals(cookie.getName())) {
+				  String sessionID = SessionData.getSessionIDFromCookie(cookie);
 				  if(cmd == null || cmd.equals("refresh")) {
-					  refresh(request, response, cookie);
+					  refresh(request, response, sessionID);
 					  return;
 				  } else if(cmd.equals("replace")) {
-					  replace(request, response, cookie);
-				  	  refresh(request, response, cookie);
+					  replace(request, response, sessionID);
+				  	  refresh(request, response, sessionID);
 				  	  return;
 				  } else if(cmd.equals("logout")) {
 					  logout(request, response);
@@ -70,37 +77,52 @@ public class SessionServlet extends HttpServlet {
 	  //If we got here than there are cookies, but none with
 	  //the name COOKIE_NAME, so we need to create a new session
 	  
-	  Cookie cookie = newSessionState(request, response);
-	  refresh(request, response, cookie);
+	  String sessionID = newSessionState(request, response);
+	  refresh(request, response, sessionID);
   }
 				
 		 
 
 private void logout(HttpServletRequest request, HttpServletResponse response) {
 	// TODO Auto-generated method stub
+}
+
+
+/** Creates a new SessionData object and stores it in the sessionMap */
+private String newSessionState(HttpServletRequest request, HttpServletResponse response) {
+	SessionData session = new SessionData();
+	session.sessionID = serverName + nextSessionID++;
+	session.version = 1;
+	session.message = DEFAULT_MESSAGE;
+	session.expiration_timestamp = new Date(new Date().getTime() + SESSION_EXPIRATION_TIME);
+	
+	sessionMap.put(session.sessionID, session);
+	return session.sessionID;
 	
 }
 
-private Cookie newSessionState(HttpServletRequest request, HttpServletResponse response) {
+private void replace(HttpServletRequest request, HttpServletResponse response, String sessionID) {
+	SessionData session = sessionMap.get(sessionID);
+	String newMessage = request.getParameter("new_message");
 	
-	return null;
+	//In case there is no new_message parameter in the request
+	//This really shouldn't happen
+	newMessage = newMessage == null ? "" : newMessage;
 	
+	session.message = newMessage;
 }
 
-private void replace(HttpServletRequest request, HttpServletResponse response, Cookie cookie) {
+private void refresh(HttpServletRequest request, HttpServletResponse response, String sessionID) {
 	// TODO Auto-generated method stub
 	
 }
 
-private void refresh(HttpServletRequest request, HttpServletResponse response, Cookie cookie) {
-	// TODO Auto-generated method stub
-	
-}
-
-public static class SessionData {
-	public String sessionID;
-	public int version;
-	public String message;
-	public Date expiration_timestamp;
-}
+	public static class SessionData {
+		public String sessionID;
+		public int version;
+		public String message;
+		public Date expiration_timestamp;
+		
+		
+	}
 }
