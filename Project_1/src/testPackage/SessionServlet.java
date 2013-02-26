@@ -95,7 +95,6 @@ private void logout(HttpServletRequest request, HttpServletResponse response, St
 }
 
 private Cookie newSessionState(HttpServletRequest request, HttpServletResponse response) {
-	
 	return null;
 	
 }
@@ -115,5 +114,17 @@ public static class SessionData {
 	public int version;
 	public String message;
 	public Date expiration_timestamp;
+	
+	public String packageCookie() {
+		String value = "";
+		value += this.sessionID;
+		value += ",";
+		value += String.valueOf(this.version);
+		return value;
+	}
+	
+	public static String getSessionID(String cookie) {
+		return cookie.split(",")[0];
+	}
 }
 }
