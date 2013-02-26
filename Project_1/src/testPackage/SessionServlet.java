@@ -35,7 +35,9 @@ public class SessionServlet extends HttpServlet {
   private String serverName;
   
   private ConcurrentHashMap<String, SessionData> sessionMap;
+  private Thread cleanupDaemon;
   
+  //TODO: find out how to get the real constructor called
   public SessionServlet(){
 	  this("Server 1");
   }
@@ -47,6 +49,8 @@ public class SessionServlet extends HttpServlet {
 		  this.serverName = "Server 1";
 	  else
 		  this.serverName = serverName;
+	  cleanupDaemon = new Thread(new SessionTableCleaner());
+	  cleanupDaemon.setDaemon(true);
   }
   
   @Override
@@ -190,4 +194,14 @@ public static class SessionData {
 	}
 }
 
+private class SessionTableCleaner implements Runnable {
+	
+	@Override
+	public void run() {
+		for (SessionData session : sessionMap.values()) {
+			if (session.expiration_timestamp.before(new Date())) 
+				sessionMap.remove(session.sessionID);
+		}
+	}
+}
 }
