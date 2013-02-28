@@ -25,6 +25,10 @@ import coreservlets.ServletUtilities;
 
 @WebServlet("/")
 public class SessionServlet extends HttpServlet {
+
+  /* ONLY GET THIS VALUE FROM THE METHOD getNextSessionID since access
+   * to this variable must be syncrhonized across concurrent requests
+   */
   private static long nextSessionID = 0;
   
   //Number of milliseconds before session expires
@@ -52,7 +56,6 @@ public class SessionServlet extends HttpServlet {
 		  this.serverName = serverName;
 	  
 	  cleanupDaemon = new Thread(new SessionTableCleaner());
-	  System.out.println("Starting daemon");
 	  cleanupDaemon.setDaemon(true);
 	  cleanupDaemon.start();
   }
@@ -66,7 +69,6 @@ public class SessionServlet extends HttpServlet {
 	  String cmd = request.getParameter("cmd");
 	  
 	  if(cookies == null) {
-		  System.out.println("cookies is null");
 		  String sessionID = newSessionState(request, response);
 		  refresh(request, response, sessionID);
 	  	  return;
@@ -76,9 +78,7 @@ public class SessionServlet extends HttpServlet {
 			  if(COOKIE_NAME.equals(cookie.getName())) {
 				  String sessionID = SessionData.getSessionID(cookie);
 				  
-				  System.out.println(sessionID);
 				  if(!sessionMap.containsKey(sessionID)){
-					  System.out.println(sessionID);
 					  sessionID = newSessionState(request, response);
 					  refresh(request, response, sessionID);
 					  return;
@@ -109,8 +109,11 @@ public class SessionServlet extends HttpServlet {
 /** Creates a new SessionData object and stores it in the sessionMap */
 private String newSessionState(HttpServletRequest request, HttpServletResponse response) {
 	SessionData session = new SessionData();
-	session.sessionID = serverName + "-" + nextSessionID++;
-	session.version = 1;
+	session.sessionID = serverName + "-" + getNextSessionID();
+	
+	//Set version number to 0 since it will be incremented in the
+	//refresh method to 1
+	session.version = 0;
 	session.message = DEFAULT_MESSAGE;
 	session.expiration_timestamp = new Date(new Date().getTime() + SESSION_EXPIRATION_TIME);
 	
@@ -143,7 +146,6 @@ private void replace(HttpServletRequest request, HttpServletResponse response, S
 	//In case there is no new_message parameter in the request
 	//This really shouldn't happen
 	newMessage = newMessage == null ? "" : newMessage;
-	System.out.println(newMessage);
 	
 	session.message = newMessage;
 }
@@ -178,6 +180,9 @@ private void refresh(HttpServletRequest request, HttpServletResponse response, S
 	response.addCookie(new Cookie(COOKIE_NAME, sd.packageCookie(serverName)));
 }
 
+private synchronized long getNextSessionID() {
+	return nextSessionID++;
+}
 
 public static class SessionData {
 	public String sessionID;
