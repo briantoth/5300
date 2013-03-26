@@ -2,6 +2,7 @@ package testPackage; // Always use packages. Never use default package.
 
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.net.InetSocketAddress;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.Set;
@@ -66,7 +67,7 @@ public class SessionServlet extends HttpServlet {
 		cleanupDaemon.setDaemon(true);
 		cleanupDaemon.start();
 		
-		rpcServer = new RPC();
+		rpcServer = new RPC(sessionMap, memberSet);
 	}
 
 	@Override
@@ -260,6 +261,20 @@ public class SessionServlet extends HttpServlet {
 		public static String getSessionID(Cookie cookie) {
 			return cookie.getValue().split(",")[0];
 		}
+		
+		@Override
+		public String toString() {
+			String value = "";
+			value += this.sessionID;
+			value += ",";
+			value += String.valueOf(this.version);
+			value += ",";
+			value += this.message;
+			value += ",";
+			value += this.expiration_timestamp.toString();
+			return value;
+		}
+		
 	}
 	
 	public static class VerboseCookie {
@@ -307,6 +322,10 @@ public class SessionServlet extends HttpServlet {
 		
 		public String toString() {
 			return serverIpAddress + "_" + serverPort;
+		}
+		
+		public InetSocketAddress getSocketAddress() {
+			return new InetSocketAddress(this.serverIpAddress, Integer.valueOf(this.serverPort));
 		}
 		
 		@Override
