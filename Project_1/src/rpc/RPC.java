@@ -254,6 +254,7 @@ public class RPC {
 	
 	// TODO this is wrong, i think that the addresses as i'm getting them here should be 
 	// passed as part of an additional parameter in the method stubs
+	// yeah you are correct, the assignment was updated - Brian
 	public static ServerAddress getServerAddress(String sessionID) {
 		String[] splitSessionID = sessionID.split("_");
 		ServerAddress address = new ServerAddress(splitSessionID[1], splitSessionID[2]);

@@ -2,9 +2,13 @@ package testPackage; // Always use packages. Never use default package.
 
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.net.DatagramPacket;
 import java.net.InetSocketAddress;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Date;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -14,6 +18,8 @@ import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+
+import org.apache.catalina.tribes.MembershipService;
 
 import rpc.RPC;
 
@@ -41,7 +47,6 @@ public class SessionServlet extends HttpServlet {
 	private static final String COOKIE_NAME = "CS5300_WJK56_DRM237_BDT25";
 	private static final String DEFAULT_MESSAGE = "Hello, User!";
 	private static final ServerAddress NULL_ADDRESS = new ServerAddress("0.0.0.0", "0");
-	private String serverName;
 
 	private ConcurrentHashMap<String, SessionData> sessionMap;
 	private Thread cleanupDaemon;
@@ -50,18 +55,9 @@ public class SessionServlet extends HttpServlet {
 	
 	private ServerAddress localAddress;
 
-	//TODO: find out how to get the real constructor called
-	public SessionServlet(){
-		this("Server 1");
-	}
-
-	public SessionServlet(String serverName) {
+	public SessionServlet() {
 		super();
 		sessionMap = new ConcurrentHashMap<String, SessionServlet.SessionData>();
-		if(serverName == null)
-			this.serverName = "Server 1";
-		else
-			this.serverName = serverName;
 
 		cleanupDaemon = new Thread(new SessionTableCleaner());
 		cleanupDaemon.setDaemon(true);
@@ -81,9 +77,10 @@ public class SessionServlet extends HttpServlet {
 		Cookie[] cookies = request.getCookies();
 		String cmd = request.getParameter("cmd");
 
+		//if the client is visiting the site for the first time
 		if(cookies == null) {
 			SessionData sessionData = newSessionState(request, response);
-			refresh(request, response, sessionData);
+			refresh(request, response, sessionData, "new session");
 			return;
 		}
 		else {
@@ -116,14 +113,14 @@ public class SessionServlet extends HttpServlet {
 					}
 
 					if(cmd == null || cmd.equals("Refresh")) {
-						refresh(request, response, sessionData);
+						refresh(request, response, sessionData, "TODO");
 						return;
 					} else if(cmd.equals("Replace")) {
 						replace(request, response, sessionData);
-						refresh(request, response, sessionData);
+						refresh(request, response, sessionData, "TODO");
 						return;
 					} else if(cmd.equals("LogOut")) {
-						logout(request, response, sessionData);
+						logout(request, response, sessionData, verboseCookie.location1, verboseCookie.location2);
 						return;
 					}
 				}
@@ -136,7 +133,7 @@ public class SessionServlet extends HttpServlet {
 		//anyways
 		System.out.println("There are cookies that we set, but none with the name " + COOKIE_NAME);
 		SessionData sessionData = newSessionState(request, response);
-		refresh(request, response, sessionData);
+		refresh(request, response, sessionData, "TODO");
 	}
 	
 	/** Update the member set. For each location we need to ensure that
@@ -157,7 +154,7 @@ public class SessionServlet extends HttpServlet {
 	/** Creates a new SessionData object and stores it in our local session map */
 	private SessionData newSessionState(HttpServletRequest request, HttpServletResponse response) {
 		SessionData session = new SessionData();
-		session.sessionID = getNextSessionID() + " _ " + localAddress.toString();
+		session.sessionID = getNextSessionID() + "_" + localAddress.toString();
 
 		//Set version number to 0 since it will be incremented in the
 		//refresh method to 1
@@ -188,12 +185,20 @@ public class SessionServlet extends HttpServlet {
 
 
 
-	private void logout(HttpServletRequest request, HttpServletResponse response, SessionData sessionData) {
-		//TODO Remove this line. It is only here so it compiles;
-		String sessionID = "";
+	private void logout(HttpServletRequest request, HttpServletResponse response, SessionData sessionData, ServerAddress primary, ServerAddress backup) {
 		
-		// remove session from session table
-		sessionMap.remove(sessionID);
+		//TODO these should go to the primary and backup
+		if(primary.equals(localAddress)){
+			sessionMap.remove(sessionData.sessionID);
+		} else {
+			rpcServer.sessionDelete(sessionData.sessionID, sessionData.version);
+		}
+		if(backup.equals(localAddress)){
+			sessionMap.remove(sessionData.sessionID);
+		} else {
+			rpcServer.sessionDelete(sessionData.sessionID, sessionData.version);
+		}
+		
 		response.setContentType("text/html");
 		try {
 			PrintWriter out = response.getWriter();
@@ -211,18 +216,48 @@ public class SessionServlet extends HttpServlet {
 
 
 
-	private void refresh(HttpServletRequest request, HttpServletResponse response, SessionData sessionData) throws IOException {
-		//TODO Remove this line. It is only there so the program compiles
-		String sessionID = "";
+	private void refresh(HttpServletRequest request, HttpServletResponse response, SessionData sessionData, String dataSource) throws IOException {
+		sessionData.version++;
+		//reset expiration of session
+		sessionData.expiration_timestamp = new Date(new Date().getTime() + SESSION_EXPIRATION_TIME);
+		
+		//save this session data with another server to act as a backup
+		ServerAddress backupLocation= null;
+		//TODO: uncomment when we are ready for multiple servers
+//		List<ServerAddress> randomMembers= new ArrayList<ServerAddress>(memberSet);
+//		Collections.shuffle(randomMembers);
+//		for(ServerAddress address : randomMembers){
+//			//TODO: figure out real discard time
+//			DatagramPacket result= 
+//					rpcServer.sessionWrite(sessionData.sessionID, sessionData.version, sessionData.message, sessionData.expiration_timestamp);
+//			//TODO: is this sufficient to check that the write succeeded?
+//			if (result != null){
+//				backupLocation= address;
+//				break;
+//			}
+//		}
+		
+		//make a new cookie
+		VerboseCookie cookie= new VerboseCookie(sessionData, localAddress, backupLocation);
+		response.addCookie(new Cookie(COOKIE_NAME, cookie.toString()));
+		
+		//generate the site text
 		response.setContentType("text/html");
 		PrintWriter out = response.getWriter();
-		SessionData sd= sessionMap.get(sessionID);
 		out.println(
 				"<!DOCTYPE html>\n" +
 						"<html>\n" +
 						"<head><title> Hello user </title></head>\n" +
 						"<body bgcolor=\"#fdf5e6\">\n" +
-						"<h1>" + sd.message + "</h1>\n" +
+						"<h1>" + sessionData.message + "</h1>\n" +
+						"The serverID is: " + localAddress.toString() +"\n<br>" +
+						"The session data was found in the " + dataSource +"\n<br>" +
+						"The primary is now: " + cookie.location1 + "\n<br>" +
+						"The secondary is now: " + (cookie.location2.equals(NULL_ADDRESS) ? "no secondary" : cookie.location2) + "\n<br>" +
+						"The session expiration time is now: " + sessionData.expiration_timestamp + "\n<br>" +
+						//TODO: update with real discard time
+						"The discard_time is now: " + sessionData.expiration_timestamp + "\n<br>" +
+						"The memberset is now: " + memberSet + "\n<br><br>" +
 						"<form action='session' method='GET'>" +
 						"<input type='submit' value='Replace' name='cmd'>" +
 						"<input type='text' maxlength='512' size='40' name='new_message'>" +
@@ -234,13 +269,8 @@ public class SessionServlet extends HttpServlet {
 						"<input type='submit' value='LogOut' name='cmd'>" +
 						"</form>" +
 						"<br> Session on: " + request.getLocalAddr() + ":" +request.getServerPort() +
-						"<br> Expires: " + sd.expiration_timestamp +
+						"<br> Expires: " + sessionData.expiration_timestamp +
 				"</body></html>");
-
-		sd.version++;
-		//reset expiration of session
-		sd.expiration_timestamp = new Date(new Date().getTime() + SESSION_EXPIRATION_TIME);
-		response.addCookie(new Cookie(COOKIE_NAME, sd.packageCookie(serverName)));
 	}
 
 
@@ -249,32 +279,6 @@ public class SessionServlet extends HttpServlet {
 		public int version;
 		public String message;
 		public Date expiration_timestamp;
-
-		public String packageCookie(String serverName) {
-			String value = "";
-			value += this.sessionID;
-			value += ",";
-			value += String.valueOf(this.version);
-			return value;
-		}
-
-		public static String getSessionID(Cookie cookie) {
-			return cookie.getValue().split(",")[0];
-		}
-		
-		@Override
-		public String toString() {
-			String value = "";
-			value += this.sessionID;
-			value += ",";
-			value += String.valueOf(this.version);
-			value += ",";
-			value += this.message;
-			value += ",";
-			value += this.expiration_timestamp.toString();
-			return value;
-		}
-		
 	}
 	
 	public static class VerboseCookie {
@@ -305,10 +309,27 @@ public class SessionServlet extends HttpServlet {
 			version = Integer.parseInt(cookieParts[3]);
 			
 			location1 = new ServerAddress(cookieParts[4], cookieParts[5]);
-			location2 = new ServerAddress(cookieParts[6], cookieParts[7]);
+			//allow for non-replicated session cookies
+			if (cookieParts.length > 7)
+				location2 = new ServerAddress(cookieParts[6], cookieParts[7]);
+			else
+				location2 = NULL_ADDRESS;
 			
+			System.out.println("location2: " + location2);
 		}
 		
+		public VerboseCookie(SessionData sd, ServerAddress primaryLocation, ServerAddress backupLocation){
+			sessionID= sd.sessionID;
+			version= sd.version;
+			location1= primaryLocation;
+			location2= backupLocation == null ? NULL_ADDRESS : backupLocation;
+		}
+		
+		@Override
+		public String toString(){
+			String str= sessionID + "_" + version + "_" + location1;
+			return location2.equals(NULL_ADDRESS) ?	str : str + "_" + location2;
+		}
 	}
 	
 	public static class ServerAddress {
@@ -320,6 +341,7 @@ public class SessionServlet extends HttpServlet {
 			serverPort = port;
 		}
 		
+		@Override
 		public String toString() {
 			return serverIpAddress + "_" + serverPort;
 		}
