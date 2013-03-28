@@ -21,8 +21,6 @@ public class RPC {
 	// TODO consult on this
 	private static int COUNTER = (int) Math.rint(100000*Math.random());
 	
-	// private ConcurrentHashMap<String, SessionData> sessionMap;
-	// private Set<ServerAddress> memberSet;
 	private Thread serverThread;
 	private Semaphore mutex;
 	
@@ -36,9 +34,6 @@ public class RPC {
 	public RPC(ConcurrentHashMap<String, SessionData> sMap, Set<ServerAddress> mSet) {
 		super();
 		
-		// this.sessionMap = sMap;
-		// this.memberSet = mSet;
-		
 		this.mutex = new Semaphore(1);
 		
 		// instantiate and fork server thread
@@ -47,7 +42,7 @@ public class RPC {
 		this.serverThread.start();
 	}
 	
-	public DatagramPacket sessionRead(String sessionID, int sessionVersionNum) {
+	public DatagramPacket sessionRead(String sessionID, int sessionVersionNum, ServerAddress[] addresses) {
 		DatagramPacket response = null;
 		try {
 			// create a new socket for communication
@@ -69,11 +64,8 @@ public class RPC {
 			byte[] outputBuffer = new byte[MAX_PACKET_SIZE];
 			fillOutputBuffer(outputString.getBytes(), outputBuffer);
 			
-			// get addresses of recipients from sessionID string
-			ServerAddress address = getServerAddress(sessionID);
-			
 			// send packet to each destAddr, destPort pair
-			sendPacket(rpcSocket, address, outputBuffer);
+			sendPacket(rpcSocket, addresses, outputBuffer);
 			
 			// get response
 			response = getResponse(rpcSocket, callID);
@@ -94,7 +86,7 @@ public class RPC {
 		return response;
 	}
 	
-	public DatagramPacket sessionWrite(String sessionID, int sessionVersionNum, String data, Date discardTime) {
+	public DatagramPacket sessionWrite(String sessionID, int sessionVersionNum, String data, Date discardTime, ServerAddress[] addresses) {
 		DatagramPacket response = null;
 		try {
 			// create a new socket for communication
@@ -119,11 +111,8 @@ public class RPC {
 			byte[] outputBuffer = new byte[MAX_PACKET_SIZE];
 			fillOutputBuffer(outputString.getBytes(), outputBuffer);
 			
-			// get recipient address(es)
-			ServerAddress address = getServerAddress(sessionID);
-			
 			// send packet to each recipient
-			sendPacket(rpcSocket, address, outputBuffer);
+			sendPacket(rpcSocket, addresses, outputBuffer);
 			
 			// get response
 			response = getResponse(rpcSocket, callID);
@@ -145,7 +134,7 @@ public class RPC {
 		return response;
 	}
 	
-	public DatagramPacket sessionDelete(String sessionID, int sessionVersionNum) {
+	public DatagramPacket sessionDelete(String sessionID, int sessionVersionNum, ServerAddress[] addresses) {
 		DatagramPacket response = null;
 		try {
 			// create a new socket for communication
@@ -167,11 +156,8 @@ public class RPC {
 			byte[] outputBuffer = new byte[MAX_PACKET_SIZE];
 			fillOutputBuffer(outputString.getBytes(), outputBuffer);
 			
-			// get recipient address(es)
-			ServerAddress address = getServerAddress(sessionID);
-			
 			// send packet to each recipient
-			sendPacket(rpcSocket, address, outputBuffer);
+			sendPacket(rpcSocket, addresses, outputBuffer);
 			
 			// get response
 			response = getResponse(rpcSocket, callID);
@@ -193,7 +179,7 @@ public class RPC {
 		return response;
 	}
 	
-	public DatagramPacket getMembers(int size, ServerAddress address) {
+	public DatagramPacket getMembers(int size, ServerAddress[] addresses) {
 		DatagramPacket response = null;
 		try {
 			// create new socket for communication
@@ -215,7 +201,7 @@ public class RPC {
 			fillOutputBuffer(outputString.getBytes(), outputBuffer);
 			
 			// send packet
-			sendPacket(rpcSocket, address, outputBuffer);
+			sendPacket(rpcSocket, addresses, outputBuffer);
 			
 			// get response
 			response = getResponse(rpcSocket, callID);
@@ -260,11 +246,12 @@ public class RPC {
 		return address;
 	}
 	
-	public static void sendPacket(DatagramSocket rpcSocket, ServerAddress address, byte[] outputBuffer) throws SocketException, IOException {
-		// TODO possibly revert to allow multiple server addresses
-		DatagramPacket pkt = new DatagramPacket(outputBuffer, outputBuffer.length, 
-				address.getSocketAddress());
-		rpcSocket.send(pkt);
+	public static void sendPacket(DatagramSocket rpcSocket, ServerAddress[] addresses, byte[] outputBuffer) throws SocketException, IOException {
+		for (ServerAddress addr : addresses) {
+			DatagramPacket pkt = new DatagramPacket(outputBuffer, outputBuffer.length, 
+					addr.getSocketAddress());
+			rpcSocket.send(pkt);
+		}
 	}
 	
 	public static DatagramPacket getResponse(DatagramSocket rpcSocket, int callID) {
@@ -301,7 +288,7 @@ public class RPC {
 		return code;
 	}
 	
-	public class RPCServer implements Runnable {
+	private class RPCServer implements Runnable {
 		/**
 		 * 
 		 * RPCServer thread waits and receives incoming datagram packets.
