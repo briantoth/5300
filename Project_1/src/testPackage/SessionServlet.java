@@ -99,29 +99,47 @@ public class SessionServlet extends HttpServlet {
 						//It is not stored in our local map, so we
 						// need to get it using an RPC call
 						
-						//TODO
-						//SessionData = SessionRead(sessionID, location1, location2);
+						List<ServerAddress> serverAddresses = new ArrayList<ServerAddress>();
+						serverAddresses.add(verboseCookie.location1);
+						serverAddresses.add(verboseCookie.location2);
+						
+						sessionData = rpcServer.sessionRead(sessionID, verboseCookie.version, serverAddresses);
+						
+						
 					} else {
 						//It is in our local map
 						sessionData = sessionMap.get(sessionID);
+						sessionData.source = localAddress.toString() + " -- IPP Local";
 					}
 		
 					
 					if(sessionData == null) {
-						//The session expired. 
-						sessionData = newSessionState(request, response);
-					}
-
-					if(cmd == null || cmd.equals("Refresh")) {
-						refresh(request, response, sessionData, "TODO");
-						return;
-					} else if(cmd.equals("Replace")) {
-						replace(request, response, sessionData);
-						refresh(request, response, sessionData, "TODO");
-						return;
-					} else if(cmd.equals("LogOut")) {
-						logout(request, response, sessionData, verboseCookie.location1, verboseCookie.location2);
-						return;
+						//The session expired or the RPC calls failed
+						//TODO Change this, we need to display a message that
+						//the session expired
+						response.setContentType("text/html");
+						try {
+							PrintWriter out = response.getWriter();
+							out.println("<!DOCTYPE html>\n" +
+									"<html>\n" +
+									"<head><title>Session Expired!</title></head>\n" +
+									"<body>\n" +
+									"<h1>Session Expired</h1>\n" +
+									"</body></html>");
+						} catch (IOException e) { }
+					} else {
+						
+						if(cmd == null || cmd.equals("Refresh")) {
+							refresh(request, response, sessionData, sessionData.source);
+							return;
+						} else if(cmd.equals("Replace")) {
+							replace(request, response, sessionData);
+							refresh(request, response, sessionData, sessionData.source);
+							return;
+						} else if(cmd.equals("LogOut")) {
+							logout(request, response, sessionData, verboseCookie.location1, verboseCookie.location2);
+							return;
+						}
 					}
 				}
 			}
