@@ -22,6 +22,7 @@ import javax.servlet.http.HttpServletResponse;
 import org.apache.catalina.tribes.MembershipService;
 
 import rpc.RPC;
+import testPackage.SessionServlet.ServerAddress;
 
 /** Very simplistic servlet that generates plain text.
  *  Uses the @WebServlet annotation that is supported by
@@ -54,6 +55,7 @@ public class SessionServlet extends HttpServlet {
 	private Set<ServerAddress> memberSet = new HashSet<ServerAddress>();
 	
 	private ServerAddress localAddress;
+	private Boolean crashed= false;
 
 	public SessionServlet() {
 		super();
@@ -71,9 +73,22 @@ public class SessionServlet extends HttpServlet {
 			HttpServletResponse response)
 					throws ServletException, IOException {
 		
+		synchronized(crashed){
+			if(crashed){
+				try {
+					Thread.sleep(1000000);
+				} catch (InterruptedException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+				return;
+			}
+		}
+		
 		if(localAddress == null)
 			localAddress = new ServerAddress(request.getLocalAddr(), "" + request.getLocalPort());
 		
+		String sessionSource = "";
 		Cookie[] cookies = request.getCookies();
 		String cmd = request.getParameter("cmd");
 
@@ -99,17 +114,23 @@ public class SessionServlet extends HttpServlet {
 						//It is not stored in our local map, so we
 						// need to get it using an RPC call
 						
-						List<ServerAddress> serverAddresses = new ArrayList<ServerAddress>();
-						serverAddresses.add(verboseCookie.location1);
-						serverAddresses.add(verboseCookie.location2);
+						ServerAddress[] serverAddresses = {verboseCookie.location1, verboseCookie.location2};
 						
 						sessionData = rpcServer.sessionRead(sessionID, verboseCookie.version, serverAddresses);
+						
+						if(sessionData.responseAddress.equals(verboseCookie.location1)) {
+							sessionSource = sessionData.responseAddress.toString() + " -- IPP primary";
+						} else if(sessionData.responseAddress.equals(verboseCookie.location2)) {
+							sessionSource = sessionData.responseAddress.toString() + " -- IPP backup";
+						} else {
+							sessionSource = sessionData.responseAddress.toString();
+						}
 						
 						
 					} else {
 						//It is in our local map
 						sessionData = sessionMap.get(sessionID);
-						sessionData.source = localAddress.toString() + " -- IPP Local";
+						sessionSource = localAddress.toString() + " -- IPP Local";
 					}
 		
 					
@@ -130,11 +151,11 @@ public class SessionServlet extends HttpServlet {
 					} else {
 						
 						if(cmd == null || cmd.equals("Refresh")) {
-							refresh(request, response, sessionData, sessionData.source);
+							refresh(request, response, sessionData, sessionSource);
 							return;
 						} else if(cmd.equals("Replace")) {
 							replace(request, response, sessionData);
-							refresh(request, response, sessionData, sessionData.source);
+							refresh(request, response, sessionData, sessionSource);
 							return;
 						} else if(cmd.equals("LogOut")) {
 							logout(request, response, sessionData, verboseCookie.location1, verboseCookie.location2);
@@ -209,12 +230,12 @@ public class SessionServlet extends HttpServlet {
 		if(primary.equals(localAddress)){
 			sessionMap.remove(sessionData.sessionID);
 		} else {
-			rpcServer.sessionDelete(sessionData.sessionID, sessionData.version);
+			rpcServer.sessionDelete(sessionData.sessionID, sessionData.version, new ServerAddress[] {primary, backup});
 		}
 		if(backup.equals(localAddress)){
 			sessionMap.remove(sessionData.sessionID);
 		} else {
-			rpcServer.sessionDelete(sessionData.sessionID, sessionData.version);
+			rpcServer.sessionDelete(sessionData.sessionID, sessionData.version, new ServerAddress[] {primary, backup});
 		}
 		
 		response.setContentType("text/html");
@@ -246,10 +267,9 @@ public class SessionServlet extends HttpServlet {
 //		Collections.shuffle(randomMembers);
 //		for(ServerAddress address : randomMembers){
 //			//TODO: figure out real discard time
-//			DatagramPacket result= 
+//			boolean result= 
 //					rpcServer.sessionWrite(sessionData.sessionID, sessionData.version, sessionData.message, sessionData.expiration_timestamp);
-//			//TODO: is this sufficient to check that the write succeeded?
-//			if (result != null){
+//			if (result){
 //				backupLocation= address;
 //				break;
 //			}
@@ -286,6 +306,9 @@ public class SessionServlet extends HttpServlet {
 						"<form action='session' method='GET'>" +
 						"<input type='submit' value='LogOut' name='cmd'>" +
 						"</form>" +
+						"<form action='session' method='GET'>" +
+						"<input type='submit' value='Crash' name='cmd'>" +
+						"</form>" +
 						"<br> Session on: " + request.getLocalAddr() + ":" +request.getServerPort() +
 						"<br> Expires: " + sessionData.expiration_timestamp +
 				"</body></html>");
@@ -297,6 +320,7 @@ public class SessionServlet extends HttpServlet {
 		public int version;
 		public String message;
 		public Date expiration_timestamp;
+		public ServerAddress responseAddress;
 	}
 	
 	public static class VerboseCookie {
