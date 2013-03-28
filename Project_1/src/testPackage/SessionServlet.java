@@ -54,6 +54,7 @@ public class SessionServlet extends HttpServlet {
 	private Set<ServerAddress> memberSet = new HashSet<ServerAddress>();
 	
 	private ServerAddress localAddress;
+	private Boolean crashed= false;
 
 	public SessionServlet() {
 		super();
@@ -70,6 +71,18 @@ public class SessionServlet extends HttpServlet {
 	public void doGet(HttpServletRequest request,
 			HttpServletResponse response)
 					throws ServletException, IOException {
+		
+		synchronized(crashed){
+			if(crashed){
+				try {
+					Thread.sleep(1000000);
+				} catch (InterruptedException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+				return;
+			}
+		}
 		
 		if(localAddress == null)
 			localAddress = new ServerAddress(request.getLocalAddr(), "" + request.getLocalPort());
@@ -122,6 +135,16 @@ public class SessionServlet extends HttpServlet {
 					} else if(cmd.equals("LogOut")) {
 						logout(request, response, sessionData, verboseCookie.location1, verboseCookie.location2);
 						return;
+					} else if(cmd.equals("Crash")){
+						synchronized(crashed){
+							crashed= true;
+							try {
+								Thread.sleep(1000000);
+							} catch (InterruptedException e) {
+								// TODO Auto-generated catch block
+								e.printStackTrace();
+							}
+						}
 					}
 				}
 			}
@@ -228,10 +251,9 @@ public class SessionServlet extends HttpServlet {
 //		Collections.shuffle(randomMembers);
 //		for(ServerAddress address : randomMembers){
 //			//TODO: figure out real discard time
-//			DatagramPacket result= 
+//			boolean result= 
 //					rpcServer.sessionWrite(sessionData.sessionID, sessionData.version, sessionData.message, sessionData.expiration_timestamp);
-//			//TODO: is this sufficient to check that the write succeeded?
-//			if (result != null){
+//			if (result){
 //				backupLocation= address;
 //				break;
 //			}
@@ -267,6 +289,9 @@ public class SessionServlet extends HttpServlet {
 						"</form>" +			
 						"<form action='session' method='GET'>" +
 						"<input type='submit' value='LogOut' name='cmd'>" +
+						"</form>" +
+						"<form action='session' method='GET'>" +
+						"<input type='submit' value='Crash' name='cmd'>" +
 						"</form>" +
 						"<br> Session on: " + request.getLocalAddr() + ":" +request.getServerPort() +
 						"<br> Expires: " + sessionData.expiration_timestamp +
