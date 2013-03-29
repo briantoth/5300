@@ -247,16 +247,19 @@ public class RPC {
 	
 	public static void sendPackets(DatagramSocket rpcSocket, ServerAddress[] addresses, byte[] outputBuffer, Set<ServerAddress> memberSet) throws SocketException, IOException {
 		for (ServerAddress addr : addresses) {
-			try {
-				DatagramPacket pkt = new DatagramPacket(outputBuffer, outputBuffer.length, 
-						addr.getSocketAddress());
-				rpcSocket.send(pkt);
-			} catch (InterruptedIOException e) {
-				// handle timeout here
-				// remove member from set
-				memberSet.remove(addr);
-			} catch (Exception e){
-				System.out.print(e);
+			//check for null or otherwise illegal address
+			if(memberSet.contains(addr)){
+				try {
+					DatagramPacket pkt = new DatagramPacket(outputBuffer, outputBuffer.length, 
+							addr.getSocketAddress());
+					rpcSocket.send(pkt);
+				} catch (InterruptedIOException e) {
+					// handle timeout here
+					// remove member from set
+					memberSet.remove(addr);
+				} catch (Exception e){
+					System.out.print(e);
+				}
 			}
 		}
 	}
