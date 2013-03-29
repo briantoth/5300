@@ -57,6 +57,8 @@ public class SessionServlet extends HttpServlet {
 	private ServerAddress localAddress;
 	private Boolean crashed= false;
 
+	private int rpcListenerPort;
+
 	public SessionServlet() {
 		super();
 		sessionMap = new ConcurrentHashMap<String, SessionServlet.SessionData>();
@@ -66,6 +68,7 @@ public class SessionServlet extends HttpServlet {
 		cleanupDaemon.start();
 		
 		rpcServer = new RPC(sessionMap, memberSet);
+		rpcListenerPort = rpcServer.getRpcListenerPort();
 	}
 
 	@Override
@@ -86,7 +89,7 @@ public class SessionServlet extends HttpServlet {
 		}
 		
 		if(localAddress == null)
-			localAddress = new ServerAddress(request.getLocalAddr(), "" + request.getLocalPort());
+			localAddress = new ServerAddress(request.getLocalAddr(), "" + rpcListenerPort);
 		
 		String sessionSource = "";
 		Cookie[] cookies = request.getCookies();
@@ -118,14 +121,6 @@ public class SessionServlet extends HttpServlet {
 						
 						sessionData = rpcServer.sessionRead(sessionID, verboseCookie.version, serverAddresses);
 						
-						if(sessionData.responseAddress.equals(verboseCookie.location1)) {
-							sessionSource = sessionData.responseAddress.toString() + " -- IPP primary";
-						} else if(sessionData.responseAddress.equals(verboseCookie.location2)) {
-							sessionSource = sessionData.responseAddress.toString() + " -- IPP backup";
-						} else {
-							sessionSource = sessionData.responseAddress.toString();
-						}
-						
 						
 					} else {
 						//It is in our local map
@@ -149,7 +144,15 @@ public class SessionServlet extends HttpServlet {
 									"</body></html>");
 						} catch (IOException e) { }
 					} else {
-						
+						if(sessionData.responseAddress != null) {
+							if(sessionData.responseAddress.equals(verboseCookie.location1)) {
+								sessionSource = sessionData.responseAddress.toString() + " -- IPP primary";
+							} else if(sessionData.responseAddress.equals(verboseCookie.location2)) {
+								sessionSource = sessionData.responseAddress.toString() + " -- IPP backup";
+							} else {
+								sessionSource = sessionData.responseAddress.toString();
+							}
+						}
 						if(cmd == null || cmd.equals("Refresh")) {
 							refresh(request, response, sessionData, sessionSource);
 							return;
