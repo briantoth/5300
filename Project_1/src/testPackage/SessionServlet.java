@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.net.DatagramPacket;
 import java.net.InetSocketAddress;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
@@ -42,7 +43,7 @@ public class SessionServlet extends HttpServlet {
 	private static long nextSessionID = 0;
 
 	//Number of milliseconds before session expires
-	private static final long SESSION_EXPIRATION_TIME = 60 * 1000;
+	private static final long SESSION_EXPIRATION_TIME = 5 * 60 * 1000;
 	private static final long CLEANUP_TIMEOUT = 5 * 1000;
 
 	private static final String COOKIE_NAME = "CS5300_WJK56_DRM237_BDT25";
@@ -324,6 +325,12 @@ public class SessionServlet extends HttpServlet {
 		public String message;
 		public Date expiration_timestamp;
 		public ServerAddress responseAddress;
+		
+		@Override
+		public String toString(){
+			SimpleDateFormat sdf= new SimpleDateFormat();
+			return sessionID + "," + version +","+message+","+sdf.format(expiration_timestamp);
+		}
 	}
 	
 	public static class VerboseCookie {
