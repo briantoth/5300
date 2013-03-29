@@ -239,7 +239,7 @@ public class RPC {
 		if (outputData.length > MAX_PACKET_SIZE) {
 			// TODO handle case where too much data?
 		} else {
-			for (int i = 0; i < MAX_PACKET_SIZE; i++) {
+			for (int i = 0; i < outputData.length ; i++) {
 				outputBuffer[i] = outputData[i];
 			}
 		}
@@ -255,6 +255,8 @@ public class RPC {
 				// handle timeout here
 				// remove member from set
 				memberSet.remove(addr);
+			} catch (Exception e){
+				System.out.print(e);
 			}
 		}
 	}
