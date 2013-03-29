@@ -60,7 +60,7 @@ public class RPC {
 			String outputString = String.valueOf(callID) 
 					+ "," + opCode
 					+ "," + sessionID 
-					+ "," + String.valueOf(sessionVersionNum);
+					+ "," + String.valueOf(sessionVersionNum) + ",";
 			
 			// output buffer has to be 512 bytes
 			byte[] outputBuffer = new byte[MAX_PACKET_SIZE];
@@ -376,7 +376,8 @@ public class RPC {
 					
 					// get the callID and the operation code from the packet
 					String pktData = new String(rPkt.getData());
-					String[] splitData = pktData.split(",");
+					System.out.println("RPC SERVER RECEIVED PACKET\n" + pktData + "\n---------------");
+					String[] splitData = pktData.trim().split(",");
 					int callID = Integer.valueOf(splitData[0]);
 					OpCode opCode = matchOpCode(splitData[1]);
 					
@@ -395,7 +396,8 @@ public class RPC {
 						case SESSION_READ:
 							// get session ID and version number
 							sessionID = splitData[2];
-							sessionVersionNum = Integer.valueOf(splitData[3]);
+							System.out.println("Attempting to parse '" + splitData[3] + "'");
+							sessionVersionNum = Integer.parseInt(splitData[3]);
 							// look in session table for the requested information
 							sessionData = this.sessionMap.get(sessionID);
 							if (sessionData == null || sessionData.version < sessionVersionNum) {
