@@ -401,6 +401,11 @@ public class SessionServlet extends HttpServlet {
 			return serverIpAddress.equals(other.serverIpAddress) &&
 					serverPort.equals(other.serverPort);
 		}
+		
+		@Override 
+		public int hashCode() {
+			return toString().hashCode();
+		}
 	}
 
 	private class SessionTableCleaner implements Runnable {
