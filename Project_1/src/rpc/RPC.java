@@ -16,14 +16,11 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
-import testPackage.SessionServlet;
 import testPackage.SessionServlet.ServerAddress;
 import testPackage.SessionServlet.SessionData;
 
 
 public class RPC {
-	//turns manual port setting on and off
-	private static final boolean debug= false;
 	
 	private static final int MAX_PACKET_SIZE = 512;
 	private static final int RECEIVE_TIMEOUT = 1000 * 10;
@@ -249,14 +246,11 @@ public class RPC {
 	}
 	
 	public static int generateCallID() {
-		// TODO make a better way of generating unique callID values?
 		return ++COUNTER;
 	}
 	
 	public static void fillOutputBuffer(byte[] outputData, byte[] outputBuffer) {
-		if (outputData.length > MAX_PACKET_SIZE) {
-			// TODO handle case where too much data?
-		} else {
+		if (!(outputData.length > MAX_PACKET_SIZE)) {
 			for (int i = 0; i < outputData.length ; i++) {
 				outputBuffer[i] = outputData[i];
 			}
@@ -306,8 +300,6 @@ public class RPC {
 			memberSet.removeAll(expectingMessageFrom);
 			return rPkt;
 		}
-		//TODO: I am pretty sure this isn't necessary; how did we send the packet in the first place?
-		//memberSet.add(new ServerAddress(rPkt.getAddress().toString(), String.valueOf(rPkt.getPort())));
 		return rPkt;
 	}
 	
@@ -339,6 +331,7 @@ public class RPC {
 		return d;
 	}
 	
+	@SuppressWarnings("deprecation")
 	public void crash() {
 		// purposely crash the server thread
 		this.serverThread.stop();
@@ -372,24 +365,12 @@ public class RPC {
 			this.memberSet = mSet;
 
 			// create a new socket for listening
-			if(debug){
-				try {
-					servSocket = new DatagramSocket(new InetSocketAddress("localhost", 20000));
-				} catch (SocketException e) {
-					// Massive hack here
-					try {
-						servSocket = new DatagramSocket(new InetSocketAddress("localhost", 20001));
-					} catch (SocketException e1) {
-						e1.printStackTrace();
-					}
-				}
-			} else{
-				try {
-					servSocket = new DatagramSocket();
-				} catch (SocketException e) {
-					e.printStackTrace();
-				}
+			try {
+				servSocket = new DatagramSocket();
+			} catch (SocketException e) {
+				e.printStackTrace();
 			}
+				
 			int serverPort = servSocket.getLocalPort();
 			setRpcListenerPort(serverPort);
 		}

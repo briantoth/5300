@@ -41,6 +41,8 @@ public class SessionServlet extends HttpServlet {
 
 	//Number of milliseconds before session expires
 	private static final long SESSION_EXPIRATION_TIME = 5 * 60 * 1000;
+	private static final int DELTA= 2 * 1000;
+	private static final int TAU= 1 * 1000;
 	private static final long CLEANUP_TIMEOUT = 5 * 1000;
 
 	private static final String COOKIE_NAME = "CS5300_WJK56_DRM237_BDT25";
@@ -285,10 +287,9 @@ public class SessionServlet extends HttpServlet {
 		List<ServerAddress> randomMembers= new ArrayList<ServerAddress>(memberSet);
 		Collections.shuffle(randomMembers);
 		for(ServerAddress address : randomMembers){
-			//TODO: figure out real discard time
 			boolean result= 
 					rpcServer.sessionWrite(sessionData.sessionID, sessionData.version, sessionData.message,
-							sessionData.expiration_timestamp, new ServerAddress[]{address});
+							new Date(sessionData.expiration_timestamp.getTime() + 2 * DELTA + TAU), new ServerAddress[]{address});
 			if (result){
 				backupLocation= address;
 				break;
@@ -298,7 +299,7 @@ public class SessionServlet extends HttpServlet {
 		//make a new cookie
 		VerboseCookie cookie= new VerboseCookie(sessionData, localAddress, backupLocation);
 		Cookie cookieToSend= new Cookie(COOKIE_NAME, cookie.toString());
-		cookieToSend.setMaxAge((int)SESSION_EXPIRATION_TIME/1000);
+		cookieToSend.setMaxAge((int)(SESSION_EXPIRATION_TIME + DELTA)/1000);
 		response.addCookie(cookieToSend);
 		
 		//generate the site text
@@ -315,8 +316,7 @@ public class SessionServlet extends HttpServlet {
 						"The primary is now: " + cookie.location1 + "\n<br>" +
 						"The secondary is now: " + (cookie.location2.equals(NULL_ADDRESS) ? "no secondary" : cookie.location2) + "\n<br>" +
 						"The session expiration time is now: " + sessionData.expiration_timestamp + "\n<br>" +
-						//TODO: update with real discard time
-						"The discard_time is now: " + sessionData.expiration_timestamp + "\n<br>" +
+						"The discard_time is now: " + new Date(sessionData.expiration_timestamp.getTime() + DELTA) + "\n<br>" +
 						"The memberset is now: " + memberSet + "\n<br><br>" +
 						"<form action='session' method='GET'>" +
 						"<input type='submit' value='Replace' name='cmd'>" +
