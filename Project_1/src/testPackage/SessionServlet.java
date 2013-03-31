@@ -2,8 +2,8 @@ package testPackage; // Always use packages. Never use default package.
 
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.net.DatagramPacket;
 import java.net.InetSocketAddress;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
@@ -19,10 +19,7 @@ import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import org.apache.catalina.tribes.MembershipService;
-
 import rpc.RPC;
-import testPackage.SessionServlet.ServerAddress;
 
 /** Very simplistic servlet that generates plain text.
  *  Uses the @WebServlet annotation that is supported by
@@ -42,11 +39,11 @@ public class SessionServlet extends HttpServlet {
 	private static long nextSessionID = 0;
 
 	//Number of milliseconds before session expires
-	private static final long SESSION_EXPIRATION_TIME = 60 * 1000;
+	private static final long SESSION_EXPIRATION_TIME = 5 * 60 * 1000;
 	private static final long CLEANUP_TIMEOUT = 5 * 1000;
 
 	private static final String COOKIE_NAME = "CS5300_WJK56_DRM237_BDT25";
-	private static final String DEFAULT_MESSAGE = "Hello, User!";
+	private static final String DEFAULT_MESSAGE = "Hello User!";
 	private static final ServerAddress NULL_ADDRESS = new ServerAddress("0.0.0.0", "0");
 
 	private ConcurrentHashMap<String, SessionData> sessionMap;
@@ -81,7 +78,6 @@ public class SessionServlet extends HttpServlet {
 				try {
 					Thread.sleep(1000000);
 				} catch (InterruptedException e) {
-					// TODO Auto-generated catch block
 					e.printStackTrace();
 				}
 				return;
@@ -99,6 +95,7 @@ public class SessionServlet extends HttpServlet {
 		if(cookies == null) {
 			SessionData sessionData = newSessionState(request, response);
 			refresh(request, response, sessionData, "new session");
+			System.out.println("Starting new session");
 			return;
 		}
 		else {
@@ -133,6 +130,12 @@ public class SessionServlet extends HttpServlet {
 						//The session expired or the RPC calls failed
 						//TODO Change this, we need to display a message that
 						//the session expired
+						
+						//backdated cookie to force the client to clear its cookie
+						Cookie newCookie= new Cookie(COOKIE_NAME, "old_cookie");
+						newCookie.setMaxAge(0);
+						response.addCookie(newCookie);
+						
 						response.setContentType("text/html");
 						try {
 							PrintWriter out = response.getWriter();
@@ -143,8 +146,10 @@ public class SessionServlet extends HttpServlet {
 									"<h1>Session Expired</h1>\n" +
 									"</body></html>");
 						} catch (IOException e) { }
+						return;
 					} else {
 						if(sessionData.responseAddress != null) {
+							System.out.println("Successfully read session from server -- " + sessionData.responseAddress.toString());
 							if(sessionData.responseAddress.equals(verboseCookie.location1)) {
 								sessionSource = sessionData.responseAddress.toString() + " -- IPP primary";
 							} else if(sessionData.responseAddress.equals(verboseCookie.location2)) {
@@ -160,6 +165,17 @@ public class SessionServlet extends HttpServlet {
 							replace(request, response, sessionData);
 							refresh(request, response, sessionData, sessionSource);
 							return;
+						} else if(cmd.equals("Crash")){
+							synchronized(crashed){
+								crashed=true;
+								rpcServer.crash();
+								try {
+									Thread.sleep(1000000);
+								} catch (InterruptedException e) {
+									e.printStackTrace();
+								}
+								return;
+							}
 						} else if(cmd.equals("LogOut")) {
 							logout(request, response, sessionData, verboseCookie.location1, verboseCookie.location2);
 							return;
@@ -175,7 +191,7 @@ public class SessionServlet extends HttpServlet {
 		//anyways
 		System.out.println("There are cookies that we set, but none with the name " + COOKIE_NAME);
 		SessionData sessionData = newSessionState(request, response);
-		refresh(request, response, sessionData, "TODO");
+		refresh(request, response, sessionData, "new session");
 	}
 	
 	/** Update the member set. For each location we need to ensure that
@@ -202,10 +218,7 @@ public class SessionServlet extends HttpServlet {
 		//refresh method to 1
 		session.version = 0;
 		session.message = DEFAULT_MESSAGE;
-		session.expiration_timestamp = new Date(new Date().getTime() + SESSION_EXPIRATION_TIME);
-
-		//TODO Is it neccessary to put it in the session map right now?
-		sessionMap.put(session.sessionID, session);
+		
 		return session;
 	}
 
@@ -229,16 +242,15 @@ public class SessionServlet extends HttpServlet {
 
 	private void logout(HttpServletRequest request, HttpServletResponse response, SessionData sessionData, ServerAddress primary, ServerAddress backup) {
 		
-		//TODO these should go to the primary and backup
 		if(primary.equals(localAddress)){
 			sessionMap.remove(sessionData.sessionID);
 		} else {
-			rpcServer.sessionDelete(sessionData.sessionID, sessionData.version, new ServerAddress[] {primary, backup});
+			rpcServer.sessionDelete(sessionData.sessionID, sessionData.version, new ServerAddress[] {primary});
 		}
 		if(backup.equals(localAddress)){
 			sessionMap.remove(sessionData.sessionID);
 		} else {
-			rpcServer.sessionDelete(sessionData.sessionID, sessionData.version, new ServerAddress[] {primary, backup});
+			rpcServer.sessionDelete(sessionData.sessionID, sessionData.version, new ServerAddress[] {backup});
 		}
 		
 		response.setContentType("text/html");
@@ -251,7 +263,7 @@ public class SessionServlet extends HttpServlet {
 					"<h1>Bye!</h1>\n" +
 					"</body></html>");
 		} catch (IOException e) {
-			// TODO do nothing?
+			e.printStackTrace();
 		}
 	}
 
@@ -263,24 +275,29 @@ public class SessionServlet extends HttpServlet {
 		//reset expiration of session
 		sessionData.expiration_timestamp = new Date(new Date().getTime() + SESSION_EXPIRATION_TIME);
 		
+		//save the session data because we are now the primary backup
+		sessionMap.put(sessionData.sessionID, sessionData);
+		
 		//save this session data with another server to act as a backup
 		ServerAddress backupLocation= null;
-		//TODO: uncomment when we are ready for multiple servers
-//		List<ServerAddress> randomMembers= new ArrayList<ServerAddress>(memberSet);
-//		Collections.shuffle(randomMembers);
-//		for(ServerAddress address : randomMembers){
-//			//TODO: figure out real discard time
-//			boolean result= 
-//					rpcServer.sessionWrite(sessionData.sessionID, sessionData.version, sessionData.message, sessionData.expiration_timestamp);
-//			if (result){
-//				backupLocation= address;
-//				break;
-//			}
-//		}
+		List<ServerAddress> randomMembers= new ArrayList<ServerAddress>(memberSet);
+		Collections.shuffle(randomMembers);
+		for(ServerAddress address : randomMembers){
+			//TODO: figure out real discard time
+			boolean result= 
+					rpcServer.sessionWrite(sessionData.sessionID, sessionData.version, sessionData.message,
+							sessionData.expiration_timestamp, new ServerAddress[]{address});
+			if (result){
+				backupLocation= address;
+				break;
+			}
+		}
 		
 		//make a new cookie
 		VerboseCookie cookie= new VerboseCookie(sessionData, localAddress, backupLocation);
-		response.addCookie(new Cookie(COOKIE_NAME, cookie.toString()));
+		Cookie cookieToSend= new Cookie(COOKIE_NAME, cookie.toString());
+		cookieToSend.setMaxAge((int)SESSION_EXPIRATION_TIME/1000);
+		response.addCookie(cookieToSend);
 		
 		//generate the site text
 		response.setContentType("text/html");
@@ -324,6 +341,12 @@ public class SessionServlet extends HttpServlet {
 		public String message;
 		public Date expiration_timestamp;
 		public ServerAddress responseAddress;
+		
+		@Override
+		public String toString(){
+			SimpleDateFormat sdf= new SimpleDateFormat();
+			return sessionID + "," + version +","+message+","+sdf.format(expiration_timestamp);
+		}
 	}
 	
 	public static class VerboseCookie {
@@ -382,7 +405,13 @@ public class SessionServlet extends HttpServlet {
 		public String serverPort;
 		
 		public ServerAddress(String ipAddress, String port) {
-			serverIpAddress = ipAddress;
+			//Datagrampacket.getAddress().toString() puts a / in front of the address
+			//The person who put that there should be shot
+			if(ipAddress.contains("/"))
+				serverIpAddress = ipAddress.substring(1);
+			else 
+				serverIpAddress = ipAddress;
+			
 			serverPort = port;
 		}
 		
@@ -392,6 +421,8 @@ public class SessionServlet extends HttpServlet {
 		}
 		
 		public InetSocketAddress getSocketAddress() {
+			System.out.println(this.serverIpAddress);
+			System.out.println(Integer.valueOf(this.serverPort));
 			return new InetSocketAddress(this.serverIpAddress, Integer.valueOf(this.serverPort));
 		}
 		
@@ -424,7 +455,6 @@ public class SessionServlet extends HttpServlet {
 				try {
 					Thread.sleep(CLEANUP_TIMEOUT);
 				} catch (InterruptedException e) {
-					// TODO Auto-generated catch block
 					e.printStackTrace();
 				}
 			}

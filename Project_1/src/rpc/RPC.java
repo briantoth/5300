@@ -4,10 +4,13 @@ import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
+import java.net.InetSocketAddress;
 import java.net.SocketException;
 import java.net.SocketTimeoutException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.Set;
@@ -16,9 +19,13 @@ import java.util.concurrent.ConcurrentHashMap;
 import testPackage.SessionServlet.ServerAddress;
 import testPackage.SessionServlet.SessionData;
 
+
 public class RPC {
+	//turns manual port setting on and off
+	private static final boolean debug= false;
+	
 	private static final int MAX_PACKET_SIZE = 512;
-	private static final int RECEIVE_TIMEOUT = 10 * 1000;
+	private static final int RECEIVE_TIMEOUT = 1000 * 10;
 	private static int COUNTER = (int) Math.rint(100000*Math.random());
 	
 	private Set<ServerAddress> memberSet;
@@ -66,19 +73,28 @@ public class RPC {
 			byte[] outputBuffer = new byte[MAX_PACKET_SIZE];
 			fillOutputBuffer(outputString.getBytes(), outputBuffer);
 			
-			// send packet to each destAddr, destPort pair
-			sendPackets(rpcSocket, addresses, outputBuffer, this.memberSet);
-			
-			// get response and construct session data instance
-			response = getResponse(rpcSocket, callID, this.memberSet);
-			// {callID, sessionID, versionNum, message, expiration timestamp}
-			String[] sessionString = new String(response.getData()).split(",");
-			if (sessionString.length == 5) {
-				sessionData = new SessionData();
-				sessionData.sessionID = sessionString[1];
-				sessionData.version = Integer.valueOf(sessionString[2]);
-				sessionData.message = sessionString[3];
-				sessionData.expiration_timestamp = getDateFromString(sessionString[4]);
+			for(ServerAddress address : addresses) {
+				// send packet to each destAddr, destPort pair
+				sendPackets(rpcSocket, new ServerAddress[] {address}, outputBuffer);
+				
+				// get response and construct session data instance
+				response = getResponse(rpcSocket, callID, address);
+				if(response != null) {
+					// {callID, sessionID, versionNum, message, expiration timestamp}
+					String[] sessionString = new String(response.getData()).split(",");
+					System.out.println("response: " + new String(response.getData()));
+					if (sessionString.length > 4) {
+						sessionData = new SessionData();
+						sessionData.sessionID = sessionString[1];
+						sessionData.version = Integer.valueOf(sessionString[2]);
+						sessionData.message = sessionString[3];
+						sessionData.expiration_timestamp = getDateFromString(sessionString[4]);
+						sessionData.responseAddress = new ServerAddress(response.getAddress().toString(), "" + response.getPort());
+					}
+					
+					//We got our response so we don't need to send to anymore servers
+					break;
+				}
 			}
 
 			// close the socket
@@ -105,29 +121,35 @@ public class RPC {
 			// set opCode
 			String opCode = OpCode.SESSION_WRITE.toString();
 			
+			SimpleDateFormat sdf= new SimpleDateFormat();
 			// outputString = "callID,opCode.SESSION_WRITE,sessionID,sessionVersionNum,data,discardTime"
 			String outputString = String.valueOf(callID)
 					+ "," + opCode
 					+ "," + sessionID
 					+ "," + String.valueOf(sessionVersionNum)
 					+ "," + data
-					+ "," + discardTime.toString();
+					+ "," + sdf.format(discardTime) + ",";
 			
 			// fill outputBuffer with [callID, opCode, sessionID, sessionVersionNum,
 			//							data, discardTime]
 			byte[] outputBuffer = new byte[MAX_PACKET_SIZE];
 			fillOutputBuffer(outputString.getBytes(), outputBuffer);
 			
-			// send packet to each recipient
-			sendPackets(rpcSocket, addresses, outputBuffer, this.memberSet);
-			
-			// get response
-			DatagramPacket response = getResponse(rpcSocket, callID, this.memberSet);
-			String[] responseString = new String(response.getData()).split(",");
-			if (responseString.length > 1 && responseString[1] == "0") {
-				success = true;
+			for(ServerAddress address : addresses) {
+				// send packet to each recipient
+				sendPackets(rpcSocket, new ServerAddress[] {address}, outputBuffer);
+				
+				// get response
+				DatagramPacket response = getResponse(rpcSocket, callID, address);
+				if(response != null) {
+					String[] responseString = new String(response.getData()).split(",");
+					if (responseString.length > 1) {
+						if(responseString[1].equals("0")) {
+							success = true;
+						}
+					}
+				}
 			}
-  
 			// close the socket
 			rpcSocket.close();
 		} catch (SocketException e) {
@@ -156,21 +178,23 @@ public class RPC {
 			String outputString = String.valueOf(callID)
 					+ "," + opCode
 					+ "," + sessionID
-					+ "," + String.valueOf(sessionVersionNum);
+					+ "," + String.valueOf(sessionVersionNum) + ",";
 			
 			// fill outputBuffer with outputString
 			byte[] outputBuffer = new byte[MAX_PACKET_SIZE];
 			fillOutputBuffer(outputString.getBytes(), outputBuffer);
 			
 			// send packet to each recipient
-			sendPackets(rpcSocket, addresses, outputBuffer, this.memberSet);
+			sendPackets(rpcSocket, addresses, outputBuffer);
 			
 			// get response
-			DatagramPacket response = getResponse(rpcSocket, callID, this.memberSet);
-			String[] responseString = new String(response.getData()).split(",");
-			if (responseString.length > 1 && responseString[1] == "0") {
-				success = true;
-			}			
+			DatagramPacket response = getResponse(rpcSocket, callID, addresses[0]);
+			if(response != null) {
+				String[] responseString = new String(response.getData()).split(",");
+				if (responseString.length > 1 && responseString[1] == "0") {
+					success = true;
+				}			
+			}
   
 			// close the socket
 			rpcSocket.close();
@@ -199,24 +223,26 @@ public class RPC {
 			// outputString = "callID,OpCode.GET_MEMBERS,size"
 			String outputString = String.valueOf(callID)
 					+ "," + opCode
-					+ "," + String.valueOf(size);
+					+ "," + String.valueOf(size) + ",";
 			
 			// fill output buffer with outputString
 			byte[] outputBuffer = new byte[MAX_PACKET_SIZE];
 			fillOutputBuffer(outputString.getBytes(), outputBuffer);
 			
-			// send packet
-			sendPackets(rpcSocket, addresses, outputBuffer, this.memberSet);
-			
-			// get response
-			DatagramPacket response = getResponse(rpcSocket, callID, this.memberSet);
-			String[] responseString = new String(response.getData()).split(",");
-			if (responseString.length > 1 && responseString[1] != "-1") {
-				members = new HashSet<ServerAddress>();
-				for (int i = 1; i < responseString.length; i++) {
-					String[] splitAddress = responseString[i].split("_");
-					ServerAddress addr = new ServerAddress(splitAddress[0], splitAddress[1]);
-					members.add(addr);
+			for(ServerAddress address : addresses) {
+				// send packet
+				sendPackets(rpcSocket, new ServerAddress[] {address}, outputBuffer);
+				
+				// get response
+				DatagramPacket response = getResponse(rpcSocket, callID, address);
+				String[] responseString = new String(response.getData()).split(",");
+				if (responseString.length > 1 && responseString[1] != "-1") {
+					members = new HashSet<ServerAddress>();
+					for (int i = 1; i < responseString.length; i++) {
+						String[] splitAddress = responseString[i].split("_");
+						ServerAddress addr = new ServerAddress(splitAddress[0], splitAddress[1]);
+						members.add(addr);
+					}
 				}
 			}
 			
@@ -233,7 +259,7 @@ public class RPC {
 	}
 	
 	public static int generateCallID() {
-		// TODO make a better way of generating unique callID values
+		// TODO make a better way of generating unique callID values?
 		return ++COUNTER;
 	}
 	
@@ -247,7 +273,7 @@ public class RPC {
 		}
 	}
 	
-	public static void sendPackets(DatagramSocket rpcSocket, ServerAddress[] addresses, byte[] outputBuffer, Set<ServerAddress> memberSet) throws SocketException, IOException {
+	private void sendPackets(DatagramSocket rpcSocket, ServerAddress[] addresses, byte[] outputBuffer) throws SocketException, IOException {
 		for (ServerAddress addr : addresses) {
 			//check for null or otherwise illegal address
 			if(memberSet.contains(addr)){
@@ -256,19 +282,20 @@ public class RPC {
 							addr.getSocketAddress());
 					
 					System.out.println("Sending packet to " + addr.toString());
+					System.out.println("This is the packet sent:" + new String(pkt.getData()));
 					rpcSocket.send(pkt);
 				} catch (InterruptedIOException e) {
 					// handle timeout here
 					// remove member from set
 					memberSet.remove(addr);
 				} catch (Exception e){
-					System.out.print(e);
+					e.printStackTrace();
 				}
 			}
 		}
 	}
 	
-	public static DatagramPacket getResponse(DatagramSocket rpcSocket, int callID, Set<ServerAddress> memberSet) throws IOException {
+	private DatagramPacket getResponse(DatagramSocket rpcSocket, int callID, ServerAddress expectingMessageFrom) throws IOException {
 		byte[] inputBuffer = new byte[MAX_PACKET_SIZE];
 		DatagramPacket rPkt = new DatagramPacket(inputBuffer, inputBuffer.length);
 		rpcSocket.setSoTimeout(RECEIVE_TIMEOUT);
@@ -278,15 +305,20 @@ public class RPC {
 			do {
 				// get call ID in response packet
 				rPkt.setLength(inputBuffer.length);
+				System.out.println("This is the port I expect a response to " + rpcSocket.getLocalPort());
 				rpcSocket.receive(rPkt);
+				
 				splitData = (new String(rPkt.getData())).split(",");
+				System.out.println("this is received: " + new String(rPkt.getData()));
 				responseCallID = Integer.valueOf(splitData[0]);
 			} while (responseCallID != callID);
 		} catch(SocketTimeoutException e) {
-			//TODO Edit member set
-			return rPkt;
+			//if the message never showed up, we can assume the sender is dead
+			memberSet.remove(expectingMessageFrom);
+			return null;
 		}
-		memberSet.add(new ServerAddress(rPkt.getAddress().toString(), String.valueOf(rPkt.getPort())));
+		//TODO: I am pretty sure this isn't necessary; how did we send the packet in the first place?
+		//memberSet.add(new ServerAddress(rPkt.getAddress().toString(), String.valueOf(rPkt.getPort())));
 		return rPkt;
 	}
 	
@@ -305,6 +337,7 @@ public class RPC {
 	}
 	
 	public static Date getDateFromString(String s) {
+		System.out.println("trying to parse this date: " + s);
 		// return a date instance from the string parameter
 		SimpleDateFormat df = new SimpleDateFormat();
 		Date d = null;
@@ -348,12 +381,26 @@ public class RPC {
 			super();
 			this.sessionMap = sMap;
 			this.memberSet = mSet;
-			
+
 			// create a new socket for listening
-			try {
-				servSocket = new DatagramSocket();
-			} catch (SocketException e) {
-				e.printStackTrace();
+			if(debug){
+				try {
+					servSocket = new DatagramSocket(new InetSocketAddress("localhost", 20000));
+				} catch (SocketException e) {
+					// Massive hack here
+					try {
+						servSocket = new DatagramSocket(new InetSocketAddress("localhost", 20001));
+					} catch (SocketException e1) {
+						// TODO Auto-generated catch block
+						e1.printStackTrace();
+					}
+				}
+			} else{
+				try {
+					servSocket = new DatagramSocket();
+				} catch (SocketException e) {
+					e.printStackTrace();
+				}
 			}
 			int serverPort = servSocket.getLocalPort();
 			setRpcListenerPort(serverPort);
@@ -361,15 +408,17 @@ public class RPC {
 
 		@Override
 		public void run() {
-			try {
-				
-				
-				
 				// continuously listen for and handle packets
 				while (true) {
 					byte[] inputBuffer = new byte[MAX_PACKET_SIZE];
 					DatagramPacket rPkt = new DatagramPacket(inputBuffer, inputBuffer.length);
-					servSocket.receive(rPkt);
+					try {
+						servSocket.receive(rPkt);
+					} catch (IOException e1) {
+						// TODO Auto-generated catch block
+						e1.printStackTrace();
+					}
+					System.out.println("got something at server");
 					
 					// get the return address for the response
 					ServerAddress responseAddr = new ServerAddress(rPkt.getAddress().toString(), String.valueOf(rPkt.getPort()));
@@ -402,10 +451,10 @@ public class RPC {
 							sessionData = this.sessionMap.get(sessionID);
 							if (sessionData == null || sessionData.version < sessionVersionNum) {
 								// construct response string with -1 version number
-								responseString += "-1";
+								responseString += "-1" + ",";
 							} else {
 								// responseString = "callID, sessionData string"
-								responseString += sessionData.toString();
+								responseString += sessionData.toString() + ",";
 							}
 							// fill output buffer
 							fillOutputBuffer(responseString.getBytes(), outputBuffer);	
@@ -434,7 +483,7 @@ public class RPC {
 
 							this.sessionMap.put(sessionID, sessionData);
 							// construct success response and fill output buffer
-							responseString += "0";
+							responseString += "0" + ",";
 							fillOutputBuffer(responseString.getBytes(), outputBuffer);
 							break;
 						case SESSION_DELETE:
@@ -447,10 +496,10 @@ public class RPC {
 							if (sessionData == null || sessionData.version <= sessionVersionNum) {
 								// nothing to do... 
 								this.sessionMap.remove(sessionID);
-								responseString += "0";
+								responseString += "0" + ",";
 							} else {
 								// version number is higher than requested delete, leave alone and send -1 response
-								responseString += "-1";
+								responseString += "-1" + ",";
 							}
 							fillOutputBuffer(responseString.getBytes(), outputBuffer);
 							break;
@@ -488,29 +537,44 @@ public class RPC {
 							responseString = String.valueOf(callID);
 							for (ServerAddress addr : members) {
 								responseString += ",";
-								responseString += addr.toString();
+								responseString += addr.toString() + ',';
 							}
 							fillOutputBuffer(responseString.getBytes(), outputBuffer);
 							break;
 						default:
-							responseString += "-1";
+							responseString += "-1" + ",";
 							fillOutputBuffer(responseString.getBytes(), outputBuffer);
 							break;
 					}
 					
 					// create the response packet and send the response
-					System.out.println("Attempting to send response to " + responseAddr.toString());
-					System.out.println("Actual address is " + responseAddr.getSocketAddress().toString());
-					DatagramPacket responsePacket = new DatagramPacket(outputBuffer, outputBuffer.length, 
-							responseAddr.getSocketAddress());
-					servSocket.send(responsePacket);
+					DatagramPacket responsePacket= null;
+					try {
+						responsePacket = new DatagramPacket(outputBuffer, outputBuffer.length, responseAddr.getSocketAddress());
+					} catch (SocketException e1) {
+						// TODO Auto-generated catch block
+						e1.printStackTrace();
+					}
+//					DatagramPacket respPack= null;
+//					System.out.println(responseAddr.serverPort);
+//					System.out.println(Integer.valueOf(responseAddr.serverPort));
+//					InetSocketAddress blah= new InetSocketAddress("localhost", Integer.valueOf(responseAddr.serverPort));
+//					try{
+//						respPack= new DatagramPacket(outputBuffer, outputBuffer.length, blah); //responseAddr.getSocketAddress());
+//					} catch (Exception e){
+//						System.out.println("Failure returning packet: " + e);
+//					}
+//					System.out.println("address is: " + blah); //responseAddr.getSocketAddress());
+//					System.out.println("response packet is: " + new String(respPack.getData()));
+					try {
+						servSocket.send(responsePacket);
+					} catch (IOException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					}
 				}
-			} catch (SocketException e) {
-				e.printStackTrace();
-			} catch (IOException e) {
-				e.printStackTrace();
 			}
-		}
 
 	}
+
 }
