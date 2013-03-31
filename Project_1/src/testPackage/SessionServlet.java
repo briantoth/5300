@@ -2,7 +2,6 @@ package testPackage; // Always use packages. Never use default package.
 
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.net.DatagramPacket;
 import java.net.InetSocketAddress;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -20,10 +19,7 @@ import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import org.apache.catalina.tribes.MembershipService;
-
 import rpc.RPC;
-import testPackage.SessionServlet.ServerAddress;
 
 /** Very simplistic servlet that generates plain text.
  *  Uses the @WebServlet annotation that is supported by
@@ -82,7 +78,6 @@ public class SessionServlet extends HttpServlet {
 				try {
 					Thread.sleep(1000000);
 				} catch (InterruptedException e) {
-					// TODO Auto-generated catch block
 					e.printStackTrace();
 				}
 				return;
@@ -137,7 +132,7 @@ public class SessionServlet extends HttpServlet {
 						//the session expired
 						
 						//backdated cookie to force the client to clear its cookie
-						Cookie newCookie= new Cookie(COOKIE_NAME, "TROLOLOLOL");
+						Cookie newCookie= new Cookie(COOKIE_NAME, "old_cookie");
 						newCookie.setMaxAge(0);
 						response.addCookie(newCookie);
 						
@@ -169,6 +164,17 @@ public class SessionServlet extends HttpServlet {
 							replace(request, response, sessionData);
 							refresh(request, response, sessionData, sessionSource);
 							return;
+						} else if(cmd.equals("Crash")){
+							synchronized(crashed){
+								crashed=true;
+								rpcServer.crash();
+								try {
+									Thread.sleep(1000000);
+								} catch (InterruptedException e) {
+									e.printStackTrace();
+								}
+								return;
+							}
 						} else if(cmd.equals("LogOut")) {
 							logout(request, response, sessionData, verboseCookie.location1, verboseCookie.location2);
 							return;
@@ -184,7 +190,7 @@ public class SessionServlet extends HttpServlet {
 		//anyways
 		System.out.println("There are cookies that we set, but none with the name " + COOKIE_NAME);
 		SessionData sessionData = newSessionState(request, response);
-		refresh(request, response, sessionData, "TODO");
+		refresh(request, response, sessionData, "new session");
 	}
 	
 	/** Update the member set. For each location we need to ensure that
@@ -211,10 +217,7 @@ public class SessionServlet extends HttpServlet {
 		//refresh method to 1
 		session.version = 0;
 		session.message = DEFAULT_MESSAGE;
-		session.expiration_timestamp = new Date(new Date().getTime() + SESSION_EXPIRATION_TIME);
-
-		//TODO Is it neccessary to put it in the session map right now?
-		//sessionMap.put(session.sessionID, session);
+		
 		return session;
 	}
 
@@ -238,16 +241,15 @@ public class SessionServlet extends HttpServlet {
 
 	private void logout(HttpServletRequest request, HttpServletResponse response, SessionData sessionData, ServerAddress primary, ServerAddress backup) {
 		
-		//TODO these should go to the primary and backup
 		if(primary.equals(localAddress)){
 			sessionMap.remove(sessionData.sessionID);
 		} else {
-			rpcServer.sessionDelete(sessionData.sessionID, sessionData.version, new ServerAddress[] {primary, backup});
+			rpcServer.sessionDelete(sessionData.sessionID, sessionData.version, new ServerAddress[] {primary});
 		}
 		if(backup.equals(localAddress)){
 			sessionMap.remove(sessionData.sessionID);
 		} else {
-			rpcServer.sessionDelete(sessionData.sessionID, sessionData.version, new ServerAddress[] {primary, backup});
+			rpcServer.sessionDelete(sessionData.sessionID, sessionData.version, new ServerAddress[] {backup});
 		}
 		
 		response.setContentType("text/html");
@@ -260,7 +262,7 @@ public class SessionServlet extends HttpServlet {
 					"<h1>Bye!</h1>\n" +
 					"</body></html>");
 		} catch (IOException e) {
-			// TODO do nothing?
+			e.printStackTrace();
 		}
 	}
 
@@ -292,8 +294,9 @@ public class SessionServlet extends HttpServlet {
 		
 		//make a new cookie
 		VerboseCookie cookie= new VerboseCookie(sessionData, localAddress, backupLocation);
-		response.addCookie(new Cookie(COOKIE_NAME, cookie.toString()));
-		//TODO: need to set max age?
+		Cookie cookieToSend= new Cookie(COOKIE_NAME, cookie.toString());
+		cookieToSend.setMaxAge((int)SESSION_EXPIRATION_TIME/1000);
+		response.addCookie(cookieToSend);
 		
 		//generate the site text
 		response.setContentType("text/html");
@@ -451,7 +454,6 @@ public class SessionServlet extends HttpServlet {
 				try {
 					Thread.sleep(CLEANUP_TIMEOUT);
 				} catch (InterruptedException e) {
-					// TODO Auto-generated catch block
 					e.printStackTrace();
 				}
 			}
