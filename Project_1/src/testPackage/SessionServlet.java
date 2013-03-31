@@ -127,6 +127,7 @@ public class SessionServlet extends HttpServlet {
 					} else {
 						//It is in our local map
 						sessionData = sessionMap.get(sessionID);
+						sessionData.responseAddress= null;
 						sessionSource = localAddress.toString() + " -- IPP Local";
 					}
 		
