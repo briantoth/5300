@@ -279,7 +279,7 @@ public class SessionServlet extends HttpServlet {
 	private void refresh(HttpServletRequest request, HttpServletResponse response, SessionData sessionData, String dataSource) throws IOException {
 		sessionData.version++;
 		//reset expiration of session
-		sessionData.expiration_timestamp = new Date(new Date().getTime() + SESSION_EXPIRATION_TIME);
+		sessionData.expiration_timestamp = new Date(new Date().getTime()+SESSION_EXPIRATION_TIME+2* DELTA+TAU);
 		
 		//save the session data because we are now the primary backup
 		sessionMap.put(sessionData.sessionID, sessionData);
@@ -291,7 +291,7 @@ public class SessionServlet extends HttpServlet {
 		for(ServerAddress address : randomMembers){
 			boolean result= 
 					rpcServer.sessionWrite(sessionData.sessionID, sessionData.version, sessionData.message,
-							new Date(sessionData.expiration_timestamp.getTime() + 2 * DELTA + TAU), new ServerAddress[]{address});
+							sessionData.expiration_timestamp, new ServerAddress[]{address});
 			if (result){
 				backupLocation= address;
 				break;
@@ -317,8 +317,8 @@ public class SessionServlet extends HttpServlet {
 						"The session data was found in the " + dataSource +"\n<br>" +
 						"The primary is now: " + cookie.location1 + "\n<br>" +
 						"The secondary is now: " + (cookie.location2.equals(NULL_ADDRESS) ? "no secondary" : cookie.location2) + "\n<br>" +
-						"The session expiration time is now: " + sessionData.expiration_timestamp + "\n<br>" +
-						"The discard_time is now: " + new Date(sessionData.expiration_timestamp.getTime() + DELTA) + "\n<br>" +
+						"The session expiration time is now: " + new Date(sessionData.expiration_timestamp.getTime() - DELTA - TAU) + "\n<br>" +
+						"The discard_time is now: " + sessionData.expiration_timestamp + "\n<br>" +
 						"The memberset is now: " + memberSet + "\n<br><br>" +
 						"<form action='session' method='GET'>" +
 						"<input type='submit' value='Replace' name='cmd'>" +
