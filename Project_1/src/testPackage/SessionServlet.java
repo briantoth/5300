@@ -11,6 +11,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.locks.ReentrantLock;
 
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
@@ -45,6 +46,8 @@ public class SessionServlet extends HttpServlet {
 	private static final String COOKIE_NAME = "CS5300_WJK56_DRM237_BDT25";
 	private static final String DEFAULT_MESSAGE = "Hello User!";
 	private static final ServerAddress NULL_ADDRESS = new ServerAddress("0.0.0.0", "0");
+	
+	private static final ReentrantLock cleanupLock = new ReentrantLock();
 
 	private ConcurrentHashMap<String, SessionData> sessionMap;
 	private Thread cleanupDaemon;
@@ -442,13 +445,15 @@ public class SessionServlet extends HttpServlet {
 	}
 
 	private class SessionTableCleaner implements Runnable {
-
+		
 		@Override
 		public void run() {
 			while(true) {
-				for (SessionData session : sessionMap.values()) {
-					if (session.expiration_timestamp.before(new Date())) 
-						sessionMap.remove(session.sessionID);
+				synchronized (cleanupLock) {
+					for (SessionData session : sessionMap.values()) {
+						if (session.expiration_timestamp.before(new Date())) 
+							sessionMap.remove(session.sessionID);
+					}
 				}
 
 				try {
