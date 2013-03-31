@@ -16,6 +16,7 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
+import testPackage.SessionServlet;
 import testPackage.SessionServlet.ServerAddress;
 import testPackage.SessionServlet.SessionData;
 
@@ -36,7 +37,11 @@ public class RPC {
 		SESSION_READ, 
 		SESSION_WRITE,
 		SESSION_DELETE, 
-		GET_MEMBERS
+		GET_MEMBERS;
+		
+		public String sendingForm(int port){
+			return name() + "|" + port + "|";
+		}
 	}
 	
 	public RPC(ConcurrentHashMap<String, SessionData> sMap, Set<ServerAddress> mSet) {
@@ -61,7 +66,7 @@ public class RPC {
 			int callID = generateCallID();
 			
 			// set opCode
-			String opCode = OpCode.SESSION_READ.toString();
+			String opCode = OpCode.SESSION_READ.sendingForm(rpcListenerPort);
 			
 			// outputString = "callID,OpCode.SESSION_READ,sessionID,sessionVersionNum"
 			String outputString = String.valueOf(callID) 
@@ -119,7 +124,7 @@ public class RPC {
 			int callID = generateCallID();
 			
 			// set opCode
-			String opCode = OpCode.SESSION_WRITE.toString();
+			String opCode = OpCode.SESSION_WRITE.sendingForm(rpcListenerPort);
 			
 			SimpleDateFormat sdf= new SimpleDateFormat();
 			// outputString = "callID,opCode.SESSION_WRITE,sessionID,sessionVersionNum,data,discardTime"
@@ -172,7 +177,7 @@ public class RPC {
 			int callID = generateCallID();;
 			
 			// set opCode
-			String opCode = OpCode.SESSION_DELETE.toString();
+			String opCode = OpCode.SESSION_DELETE.sendingForm(rpcListenerPort);
 			
 			// outputString = "callID,OpCode.SESSION_DELETE,sessionID,sessionVersionNum"
 			String outputString = String.valueOf(callID)
@@ -218,7 +223,7 @@ public class RPC {
 			int callID = generateCallID();
 			
 			// set OpCode
-			String opCode = OpCode.GET_MEMBERS.toString();
+			String opCode = OpCode.GET_MEMBERS.sendingForm(rpcListenerPort);
 			
 			// outputString = "callID,OpCode.GET_MEMBERS,size"
 			String outputString = String.valueOf(callID)
@@ -324,13 +329,13 @@ public class RPC {
 	
 	public static OpCode matchOpCode(String opCode) {
 		OpCode code = null;
-		if (opCode.equalsIgnoreCase(OpCode.SESSION_READ.toString())) {
+		if (opCode.equalsIgnoreCase(OpCode.SESSION_READ.name())) {
 			code = OpCode.SESSION_READ;
-		} else if (opCode.equalsIgnoreCase(OpCode.SESSION_WRITE.toString())) {
+		} else if (opCode.equalsIgnoreCase(OpCode.SESSION_WRITE.name())) {
 			code = OpCode.SESSION_WRITE;
-		} else if (opCode.equalsIgnoreCase(OpCode.SESSION_DELETE.toString())) {
+		} else if (opCode.equalsIgnoreCase(OpCode.SESSION_DELETE.name())) {
 			code = OpCode.SESSION_DELETE;
-		} else if (opCode.equalsIgnoreCase(OpCode.GET_MEMBERS.toString())) {
+		} else if (opCode.equalsIgnoreCase(OpCode.GET_MEMBERS.name())) {
 			code = OpCode.GET_MEMBERS;
 		}
 		return code;
@@ -391,7 +396,6 @@ public class RPC {
 					try {
 						servSocket = new DatagramSocket(new InetSocketAddress("localhost", 20001));
 					} catch (SocketException e1) {
-						// TODO Auto-generated catch block
 						e1.printStackTrace();
 					}
 				}
@@ -415,7 +419,6 @@ public class RPC {
 					try {
 						servSocket.receive(rPkt);
 					} catch (IOException e1) {
-						// TODO Auto-generated catch block
 						e1.printStackTrace();
 					}
 					System.out.println("got something at server");
@@ -428,7 +431,14 @@ public class RPC {
 					System.out.println("RPC SERVER RECEIVED PACKET\n" + pktData + "\n---------------");
 					String[] splitData = pktData.trim().split(",");
 					int callID = Integer.valueOf(splitData[0]);
-					OpCode opCode = matchOpCode(splitData[1]);
+					
+					String[] opCodePieces= splitData[1].split("\\|");
+					//pull the address of the sending server out of the request.  we can add this to the member set
+					ServerAddress newAddress= new ServerAddress(rPkt.getAddress().toString(), opCodePieces[1]);
+					memberSet.add(newAddress);
+					
+					OpCode opCode = matchOpCode(opCodePieces[0]);
+					System.out.println(opCode);
 					
 					// process packet and build response
 					byte[] outputBuffer = new byte[MAX_PACKET_SIZE];
@@ -552,7 +562,6 @@ public class RPC {
 					try {
 						responsePacket = new DatagramPacket(outputBuffer, outputBuffer.length, responseAddr.getSocketAddress());
 					} catch (SocketException e1) {
-						// TODO Auto-generated catch block
 						e1.printStackTrace();
 					}
 //					DatagramPacket respPack= null;
@@ -569,7 +578,6 @@ public class RPC {
 					try {
 						servSocket.send(responsePacket);
 					} catch (IOException e) {
-						// TODO Auto-generated catch block
 						e.printStackTrace();
 					}
 				}
