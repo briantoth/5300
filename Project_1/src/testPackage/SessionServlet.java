@@ -154,6 +154,7 @@ public class SessionServlet extends HttpServlet {
 						return;
 					} else {
 						if(sessionData.responseAddress != null) {
+							System.out.println("Successfully read session from server -- " + sessionData.responseAddress.toString());
 							if(sessionData.responseAddress.equals(verboseCookie.location1)) {
 								sessionSource = sessionData.responseAddress.toString() + " -- IPP primary";
 							} else if(sessionData.responseAddress.equals(verboseCookie.location2)) {

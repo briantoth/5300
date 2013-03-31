@@ -75,20 +75,28 @@ public class RPC {
 			byte[] outputBuffer = new byte[MAX_PACKET_SIZE];
 			fillOutputBuffer(outputString.getBytes(), outputBuffer);
 			
-			// send packet to each destAddr, destPort pair
-			sendPackets(rpcSocket, addresses, outputBuffer);
-			
-			// get response and construct session data instance
-			response = getResponse(rpcSocket, callID, Arrays.asList(addresses));
-			// {callID, sessionID, versionNum, message, expiration timestamp}
-			String[] sessionString = new String(response.getData()).split(",");
-			System.out.println("response: " + new String(response.getData()));
-			if (sessionString.length > 4) {
-				sessionData = new SessionData();
-				sessionData.sessionID = sessionString[1];
-				sessionData.version = Integer.valueOf(sessionString[2]);
-				sessionData.message = sessionString[3];
-				sessionData.expiration_timestamp = getDateFromString(sessionString[4]);
+			for(ServerAddress address : addresses) {
+				// send packet to each destAddr, destPort pair
+				sendPackets(rpcSocket, new ServerAddress[] {address}, outputBuffer);
+				
+				// get response and construct session data instance
+				response = getResponse(rpcSocket, callID, address);
+				if(response != null) {
+					// {callID, sessionID, versionNum, message, expiration timestamp}
+					String[] sessionString = new String(response.getData()).split(",");
+					System.out.println("response: " + new String(response.getData()));
+					if (sessionString.length > 4) {
+						sessionData = new SessionData();
+						sessionData.sessionID = sessionString[1];
+						sessionData.version = Integer.valueOf(sessionString[2]);
+						sessionData.message = sessionString[3];
+						sessionData.expiration_timestamp = getDateFromString(sessionString[4]);
+						sessionData.responseAddress = new ServerAddress(response.getAddress().toString(), "" + response.getPort());
+					}
+					
+					//We got our response so we don't need to send to anymore servers
+					break;
+				}
 			}
 
 			// close the socket
@@ -129,18 +137,21 @@ public class RPC {
 			byte[] outputBuffer = new byte[MAX_PACKET_SIZE];
 			fillOutputBuffer(outputString.getBytes(), outputBuffer);
 			
-			// send packet to each recipient
-			sendPackets(rpcSocket, addresses, outputBuffer);
-			
-			// get response
-			DatagramPacket response = getResponse(rpcSocket, callID, this.memberSet);
-			String[] responseString = new String(response.getData()).split(",");
-			if (responseString.length > 1) {
-				if(responseString[1].equals("0")) {
-					success = true;
+			for(ServerAddress address : addresses) {
+				// send packet to each recipient
+				sendPackets(rpcSocket, new ServerAddress[] {address}, outputBuffer);
+				
+				// get response
+				DatagramPacket response = getResponse(rpcSocket, callID, address);
+				if(response != null) {
+					String[] responseString = new String(response.getData()).split(",");
+					if (responseString.length > 1) {
+						if(responseString[1].equals("0")) {
+							success = true;
+						}
+					}
 				}
 			}
-  
 			// close the socket
 			rpcSocket.close();
 		} catch (SocketException e) {
@@ -179,11 +190,13 @@ public class RPC {
 			sendPackets(rpcSocket, addresses, outputBuffer);
 			
 			// get response
-			DatagramPacket response = getResponse(rpcSocket, callID, Arrays.asList(addresses));
-			String[] responseString = new String(response.getData()).split(",");
-			if (responseString.length > 1 && responseString[1] == "0") {
-				success = true;
-			}			
+			DatagramPacket response = getResponse(rpcSocket, callID, addresses[0]);
+			if(response != null) {
+				String[] responseString = new String(response.getData()).split(",");
+				if (responseString.length > 1 && responseString[1] == "0") {
+					success = true;
+				}			
+			}
   
 			// close the socket
 			rpcSocket.close();
@@ -218,18 +231,20 @@ public class RPC {
 			byte[] outputBuffer = new byte[MAX_PACKET_SIZE];
 			fillOutputBuffer(outputString.getBytes(), outputBuffer);
 			
-			// send packet
-			sendPackets(rpcSocket, addresses, outputBuffer);
-			
-			// get response
-			DatagramPacket response = getResponse(rpcSocket, callID, this.memberSet);
-			String[] responseString = new String(response.getData()).split(",");
-			if (responseString.length > 1 && responseString[1] != "-1") {
-				members = new HashSet<ServerAddress>();
-				for (int i = 1; i < responseString.length; i++) {
-					String[] splitAddress = responseString[i].split("_");
-					ServerAddress addr = new ServerAddress(splitAddress[0], splitAddress[1]);
-					members.add(addr);
+			for(ServerAddress address : addresses) {
+				// send packet
+				sendPackets(rpcSocket, new ServerAddress[] {address}, outputBuffer);
+				
+				// get response
+				DatagramPacket response = getResponse(rpcSocket, callID, address);
+				String[] responseString = new String(response.getData()).split(",");
+				if (responseString.length > 1 && responseString[1] != "-1") {
+					members = new HashSet<ServerAddress>();
+					for (int i = 1; i < responseString.length; i++) {
+						String[] splitAddress = responseString[i].split("_");
+						ServerAddress addr = new ServerAddress(splitAddress[0], splitAddress[1]);
+						members.add(addr);
+					}
 				}
 			}
 			
@@ -279,7 +294,7 @@ public class RPC {
 		}
 	}
 	
-	private DatagramPacket getResponse(DatagramSocket rpcSocket, int callID, Collection<ServerAddress> expectingMessageFrom) throws IOException {
+	private DatagramPacket getResponse(DatagramSocket rpcSocket, int callID, ServerAddress expectingMessageFrom) throws IOException {
 		byte[] inputBuffer = new byte[MAX_PACKET_SIZE];
 		DatagramPacket rPkt = new DatagramPacket(inputBuffer, inputBuffer.length);
 		rpcSocket.setSoTimeout(RECEIVE_TIMEOUT);
@@ -291,14 +306,15 @@ public class RPC {
 				rPkt.setLength(inputBuffer.length);
 				System.out.println("This is the port I expect a response to " + rpcSocket.getLocalPort());
 				rpcSocket.receive(rPkt);
+				
 				splitData = (new String(rPkt.getData())).split(",");
 				System.out.println("this is received: " + new String(rPkt.getData()));
 				responseCallID = Integer.valueOf(splitData[0]);
 			} while (responseCallID != callID);
 		} catch(SocketTimeoutException e) {
 			//if the message never showed up, we can assume the sender is dead
-			memberSet.removeAll(expectingMessageFrom);
-			return rPkt;
+			memberSet.remove(expectingMessageFrom);
+			return null;
 		}
 		return rPkt;
 	}
@@ -549,4 +565,5 @@ public class RPC {
 			}
 
 	}
+
 }
