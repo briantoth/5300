@@ -499,6 +499,8 @@ public class RPC {
 					}
 					
 					// create the response packet and send the response
+					System.out.println("Attempting to send response to " + responseAddr.toString());
+					System.out.println("Actual address is " + responseAddr.getSocketAddress().toString());
 					DatagramPacket responsePacket = new DatagramPacket(outputBuffer, outputBuffer.length, 
 							responseAddr.getSocketAddress());
 					servSocket.send(responsePacket);
