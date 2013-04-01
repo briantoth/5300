@@ -3,6 +3,7 @@ package testPackage; // Always use packages. Never use default package.
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.net.InetSocketAddress;
+import java.net.Socket;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -89,8 +90,19 @@ public class SessionServlet extends HttpServlet {
 			}
 		}
 		
-		if(localAddress == null)
-			localAddress = new ServerAddress(request.getLocalAddr(), "" + rpcListenerPort);
+		
+		try {
+			Thread.sleep(2*1000);
+		} catch (InterruptedException e1) {
+			// TODO Auto-generated catch block
+			e1.printStackTrace();
+		}
+		
+		if(localAddress == null) {
+			Socket s = new Socket("google.com", 80);
+			localAddress = new ServerAddress(s.getLocalAddress().getHostAddress(), "" + rpcListenerPort);
+			s.close();
+		}
 		
 		String sessionSource = "";
 		Cookie[] cookies = request.getCookies();
@@ -124,11 +136,12 @@ public class SessionServlet extends HttpServlet {
 						sessionData = rpcServer.sessionRead(sessionID, verboseCookie.version, serverAddresses);
 						
 						
-					} else {
+					} else if(sessionMap.containsKey(sessionID)){
 						//It is in our local map
 						sessionData = sessionMap.get(sessionID);
 						sessionData.responseAddress= null;
 						sessionSource = localAddress.toString() + " -- IPP Local";
+						sessionData.responseAddress = null;
 					}
 		
 					
