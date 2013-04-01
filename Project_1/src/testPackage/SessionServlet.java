@@ -61,7 +61,8 @@ public class SessionServlet extends HttpServlet {
 	private Boolean crashed= false;
 
 	private int rpcListenerPort;
-
+	private boolean shouldQueryForMembers = false;
+	
 	public SessionServlet() {
 		super();
 		sessionMap = new ConcurrentHashMap<String, SessionServlet.SessionData>();
@@ -91,13 +92,6 @@ public class SessionServlet extends HttpServlet {
 		}
 		
 		
-		try {
-			Thread.sleep(2*1000);
-		} catch (InterruptedException e1) {
-			// TODO Auto-generated catch block
-			e1.printStackTrace();
-		}
-		
 		if(localAddress == null) {
 			Socket s = new Socket("google.com", 80);
 			localAddress = new ServerAddress(s.getLocalAddress().getHostAddress(), "" + rpcListenerPort);
@@ -124,6 +118,18 @@ public class SessionServlet extends HttpServlet {
 					updateMemberSet(verboseCookie);
 					
 					SessionData sessionData = null;
+					
+					//First we check if this is the first time this server has gotten
+					//a request with a cookie in it. If it is, we are going to query another server
+					//about our member set
+					if(shouldQueryForMembers) {
+						shouldQueryForMembers = false;
+						
+						Set<ServerAddress> members = rpcServer.getMembers(20, new ServerAddress[] {verboseCookie.location1, verboseCookie.location2});
+						memberSet.addAll(members);
+						
+					}
+					
 					//Check to see if the cookie is stored in our local session
 					//map. If it is then we don't need to really do anything
 					if(! (verboseCookie.location1.equals(localAddress) ||

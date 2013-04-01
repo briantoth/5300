@@ -237,13 +237,15 @@ public class RPC {
 				
 				// get response
 				DatagramPacket response = getResponse(rpcSocket, callID, address);
-				String[] responseString = new String(response.getData()).split(",");
-				if (responseString.length > 1 && responseString[1] != "-1") {
-					members = new HashSet<ServerAddress>();
-					for (int i = 1; i < responseString.length; i++) {
-						String[] splitAddress = responseString[i].split("_");
-						ServerAddress addr = new ServerAddress(splitAddress[0], splitAddress[1]);
-						members.add(addr);
+				if(response != null) {
+					String[] responseString = new String(response.getData()).split(",");
+					if (responseString.length > 1 && responseString[1] != "-1") {
+						members = new HashSet<ServerAddress>();
+						for (int i = 1; i < responseString.length; i++) {
+							String[] splitAddress = responseString[i].split("_");
+							ServerAddress addr = new ServerAddress(splitAddress[0], splitAddress[1]);
+							members.add(addr);
+						}
 					}
 				}
 			}
