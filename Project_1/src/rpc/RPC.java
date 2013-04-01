@@ -4,13 +4,10 @@ import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
-import java.net.InetSocketAddress;
 import java.net.SocketException;
 import java.net.SocketTimeoutException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
-import java.util.Arrays;
-import java.util.Collection;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.Set;
@@ -24,7 +21,7 @@ public class RPC {
 	
 	private static final int MAX_PACKET_SIZE = 512;
 	private static final int RECEIVE_TIMEOUT = 1000 * 10;
-	private static int COUNTER = (int) Math.rint(100000*Math.random());
+	private static int COUNTER;
 	
 	private Set<ServerAddress> memberSet;
 	private Thread serverThread;
@@ -67,9 +64,9 @@ public class RPC {
 			
 			// outputString = "callID,OpCode.SESSION_READ,sessionID,sessionVersionNum"
 			String outputString = String.valueOf(callID) 
-					+ "," + opCode
-					+ "," + sessionID 
-					+ "," + String.valueOf(sessionVersionNum) + ",";
+					+ "~" + opCode
+					+ "~" + sessionID 
+					+ "~" + String.valueOf(sessionVersionNum) + "~";
 			
 			// output buffer has to be 512 bytes
 			byte[] outputBuffer = new byte[MAX_PACKET_SIZE];
@@ -83,7 +80,7 @@ public class RPC {
 				response = getResponse(rpcSocket, callID, address);
 				if(response != null) {
 					// {callID, sessionID, versionNum, message, expiration timestamp}
-					String[] sessionString = new String(response.getData()).split(",");
+					String[] sessionString = new String(response.getData()).split("~");
 					System.out.println("response: " + new String(response.getData()));
 					if (sessionString.length > 4) {
 						sessionData = new SessionData();
@@ -126,11 +123,11 @@ public class RPC {
 			SimpleDateFormat sdf= new SimpleDateFormat();
 			// outputString = "callID,opCode.SESSION_WRITE,sessionID,sessionVersionNum,data,discardTime"
 			String outputString = String.valueOf(callID)
-					+ "," + opCode
-					+ "," + sessionID
-					+ "," + String.valueOf(sessionVersionNum)
-					+ "," + data
-					+ "," + sdf.format(discardTime) + ",";
+					+ "~" + opCode
+					+ "~" + sessionID
+					+ "~" + String.valueOf(sessionVersionNum)
+					+ "~" + data
+					+ "~" + sdf.format(discardTime) + "~";
 			
 			// fill outputBuffer with [callID, opCode, sessionID, sessionVersionNum,
 			//							data, discardTime]
@@ -144,7 +141,7 @@ public class RPC {
 				// get response
 				DatagramPacket response = getResponse(rpcSocket, callID, address);
 				if(response != null) {
-					String[] responseString = new String(response.getData()).split(",");
+					String[] responseString = new String(response.getData()).split("~");
 					if (responseString.length > 1) {
 						if(responseString[1].equals("0")) {
 							success = true;
@@ -178,9 +175,9 @@ public class RPC {
 			
 			// outputString = "callID,OpCode.SESSION_DELETE,sessionID,sessionVersionNum"
 			String outputString = String.valueOf(callID)
-					+ "," + opCode
-					+ "," + sessionID
-					+ "," + String.valueOf(sessionVersionNum) + ",";
+					+ "~" + opCode
+					+ "~" + sessionID
+					+ "~" + String.valueOf(sessionVersionNum) + "~";
 			
 			// fill outputBuffer with outputString
 			byte[] outputBuffer = new byte[MAX_PACKET_SIZE];
@@ -192,7 +189,7 @@ public class RPC {
 			// get response
 			DatagramPacket response = getResponse(rpcSocket, callID, addresses[0]);
 			if(response != null) {
-				String[] responseString = new String(response.getData()).split(",");
+				String[] responseString = new String(response.getData()).split("~");
 				if (responseString.length > 1 && responseString[1] == "0") {
 					success = true;
 				}			
@@ -224,8 +221,8 @@ public class RPC {
 			
 			// outputString = "callID,OpCode.GET_MEMBERS,size"
 			String outputString = String.valueOf(callID)
-					+ "," + opCode
-					+ "," + String.valueOf(size) + ",";
+					+ "~" + opCode
+					+ "~" + String.valueOf(size) + "~";
 			
 			// fill output buffer with outputString
 			byte[] outputBuffer = new byte[MAX_PACKET_SIZE];
@@ -237,7 +234,7 @@ public class RPC {
 				
 				// get response
 				DatagramPacket response = getResponse(rpcSocket, callID, address);
-				String[] responseString = new String(response.getData()).split(",");
+				String[] responseString = new String(response.getData()).split("~");
 				if (responseString.length > 1 && responseString[1] != "-1") {
 					members = new HashSet<ServerAddress>();
 					for (int i = 1; i < responseString.length; i++) {
@@ -307,7 +304,7 @@ public class RPC {
 				System.out.println("This is the port I expect a response to " + rpcSocket.getLocalPort());
 				rpcSocket.receive(rPkt);
 				
-				splitData = (new String(rPkt.getData())).split(",");
+				splitData = (new String(rPkt.getData())).split("~");
 				System.out.println("this is received: " + new String(rPkt.getData()));
 				responseCallID = Integer.valueOf(splitData[0]);
 			} while (responseCallID != callID);
@@ -354,13 +351,13 @@ public class RPC {
 	}
 	
 	public int getRpcListenerPort() {
-		return rpcListenerPort;
+		return this.rpcListenerPort;
 	}
 
 	public void setRpcListenerPort(int rpcListenerPort) {
 		this.rpcListenerPort = rpcListenerPort;
 	}
-
+	
 	private class RPCServer implements Runnable {
 		/**
 		 * 
@@ -389,6 +386,7 @@ public class RPC {
 				
 			int serverPort = servSocket.getLocalPort();
 			setRpcListenerPort(serverPort);
+			COUNTER = serverPort*10000;
 		}
 
 		@Override
@@ -410,8 +408,12 @@ public class RPC {
 					// get the callID and the operation code from the packet
 					String pktData = new String(rPkt.getData());
 					System.out.println("RPC SERVER RECEIVED PACKET\n" + pktData + "\n---------------");
-					String[] splitData = pktData.trim().split(",");
+					String[] splitData = pktData.trim().split("~");
 					int callID = Integer.valueOf(splitData[0]);
+					
+					for (String item : splitData) {
+						System.out.println(item);
+					}
 					
 					String[] opCodePieces= splitData[1].split("\\|");
 					//pull the address of the sending server out of the request.  we can add this to the member set
@@ -430,7 +432,7 @@ public class RPC {
 					SessionData sessionData;
 					
 					// prepend the callID to the response string
-					String responseString = String.valueOf(callID) + ",";
+					String responseString = String.valueOf(callID) + "~";
 					
 					switch (opCode) {
 						case SESSION_READ:
@@ -442,10 +444,10 @@ public class RPC {
 							sessionData = this.sessionMap.get(sessionID);
 							if (sessionData == null || sessionData.version < sessionVersionNum) {
 								// construct response string with -1 version number
-								responseString += "-1" + ",";
+								responseString += "-1" + "~";
 							} else {
 								// responseString = "callID, sessionData string"
-								responseString += sessionData.toString() + ",";
+								responseString += sessionData.toString() + "~";
 							}
 							// fill output buffer
 							fillOutputBuffer(responseString.getBytes(), outputBuffer);	
@@ -474,7 +476,7 @@ public class RPC {
 
 							this.sessionMap.put(sessionID, sessionData);
 							// construct success response and fill output buffer
-							responseString += "0" + ",";
+							responseString += "0" + "~";
 							fillOutputBuffer(responseString.getBytes(), outputBuffer);
 							break;
 						case SESSION_DELETE:
@@ -487,10 +489,10 @@ public class RPC {
 							if (sessionData == null || sessionData.version <= sessionVersionNum) {
 								// nothing to do... 
 								this.sessionMap.remove(sessionID);
-								responseString += "0" + ",";
+								responseString += "0" + "~";
 							} else {
 								// version number is higher than requested delete, leave alone and send -1 response
-								responseString += "-1" + ",";
+								responseString += "-1" + "~";
 							}
 							fillOutputBuffer(responseString.getBytes(), outputBuffer);
 							break;
@@ -527,13 +529,13 @@ public class RPC {
 							// construct response string and fill output buffer
 							responseString = String.valueOf(callID);
 							for (ServerAddress addr : members) {
-								responseString += ",";
-								responseString += addr.toString() + ',';
+								responseString += "~";
+								responseString += addr.toString() + "~";
 							}
 							fillOutputBuffer(responseString.getBytes(), outputBuffer);
 							break;
 						default:
-							responseString += "-1" + ",";
+							responseString += "-1" + "~";
 							fillOutputBuffer(responseString.getBytes(), outputBuffer);
 							break;
 					}
