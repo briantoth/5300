@@ -94,7 +94,6 @@ public class SessionServlet extends HttpServlet {
 		try {
 			Thread.sleep(2*1000);
 		} catch (InterruptedException e1) {
-			// TODO Auto-generated catch block
 			e1.printStackTrace();
 		}
 		
@@ -147,8 +146,6 @@ public class SessionServlet extends HttpServlet {
 					
 					if(sessionData == null) {
 						//The session expired or the RPC calls failed
-						//TODO Change this, we need to display a message that
-						//the session expired
 						
 						//backdated cookie to force the client to clear its cookie
 						Cookie newCookie= new Cookie(COOKIE_NAME, "old_cookie");
@@ -160,9 +157,9 @@ public class SessionServlet extends HttpServlet {
 							PrintWriter out = response.getWriter();
 							out.println("<!DOCTYPE html>\n" +
 									"<html>\n" +
-									"<head><title>Session Expired!</title></head>\n" +
+									"<head><title>Session expired or failed!</title></head>\n" +
 									"<body>\n" +
-									"<h1>Session Expired</h1>\n" +
+									"<h1>Session expired or failed</h1>\n" +
 									"</body></html>");
 						} catch (IOException e) { }
 						return;
@@ -260,6 +257,10 @@ public class SessionServlet extends HttpServlet {
 
 
 	private void logout(HttpServletRequest request, HttpServletResponse response, SessionData sessionData, ServerAddress primary, ServerAddress backup) {
+		
+		Cookie newCookie= new Cookie(COOKIE_NAME, "old_cookie");
+		newCookie.setMaxAge(0);
+		response.addCookie(newCookie);
 		
 		if(primary.equals(localAddress)){
 			sessionMap.remove(sessionData.sessionID);
