@@ -1,0 +1,55 @@
+Guide to running WordCount MapReduce Task as a custom jar
+
+
+I'm assuming that you guys have the Amazon EMR command line interface installed, as well as your credentials.json file properly set up.
+
+The basic flow for running a custom jar is:
+
+1) Create the JAR file
+2) Upload the JAR and any input files to an amazon s3 bucket
+3) Create a JSON file describing your jar step
+4) Start an EMR Job Flow
+5) Schedule the jar step on your EMR Job Flow
+
+
+
+
+---- (1) Create the JAR File --------
+Start a new project in Eclipse and copy the src folder into it. You will also need to download
+Hadoop and include the hadoop-core-1.0.4.jar file in your build path.
+
+Now export this project as a JAR. I'm pretty sure the default options will work except that you may need to specify the main class. I'm not really sure if specifying the main class is neccessary since I specify it in the JSON file describing the jar step but I did it anyways.
+
+I'm assuming that you exported your JAR file as WordCount.jar
+
+
+----- (2) Upload the JAR and any input files to an amazon s3 bucket -------
+To run this program you will need a .txt input file that the program will go through and count the number of each word occurences. Any .txt file will do.
+
+I created a new bucket for project2 of this course and put both the JAR and the input file there
+
+
+----- 3) Create a JSON file describing your jar step -------
+You can just modify the custom_job_flow.json file that's in the git repo to point to the s3 locations of your JAR and input file. I think the all the fields in the JSON file are self explanatory but that might just be because I spent like 5 hours today learning everything there is about jar step JSON files, so ask me if you want to know what any of the fields mean.
+
+Note that the second argument is where EMR will write the output to. For some reason, EMR requires that this location not exist, so make sure it's a folder on your s3 bucket that doesn't exist.
+
+------ 4) Start an EMR Job Flow ---------
+Use the command
+./elastic-mapreduce --create --alive
+
+to create a new EMR Job Flow. I think it spits out the Job Flow id, but if it doesn't you can do ./elastic-mapreduce --list --active to list your active ones.
+
+------ 5) Schedule the jar step on your EMR Job Flow -----
+Use the command
+./elastic-mapreduce -j <job_flow_you_just_created_id> --json custom_job_flow.json
+
+
+
+You should be able to check the status of the Jar step on the Amazon EMR console. If it says it failed, then click on the Job Flow that you ran the step on then click the debug option. There should be links to the stderr output which should contain the reason why it failed. You may need to give it like 3-5 minutes for the links to the stderr to appear after it says your step failed.
+
+If it didn't fail than you should be able to go to your s3 bucket and you should see the output folder that you specified was created, and in it should be the output from the Jar step
+
+
+
+

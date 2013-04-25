@@ -1,0 +1,16 @@
+[
+   {
+      "Name": "WordCount",
+      "ActionOnFailure": "CONTINUE",
+      "HadoopJarStep":
+      {
+         "MainClass": "test.WordCount",
+         "Jar": "s3n://edu-cornell-cs-cs5300s13-wjk56-project2/WordCount.jar",
+         "Args":
+         [
+            "s3n://edu-cornell-cs-cs5300s13-wjk56-project2/romeoandjuliet.txt",
+            "s3n://edu-cornell-cs-cs5300s13-wjk56-project2/output/",
+         ]
+      }
+   }
+]
