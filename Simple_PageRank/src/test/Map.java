@@ -49,7 +49,7 @@ public class Map extends Mapper<LongWritable, Text, LongWritable, Text> {
 	        context.write(n, new Text("pr " + pr/allReceivingNodes.length()));
         }
         
-        context.write(nodeNum, new Text(allReceivingNodes));
+        context.write(nodeNum, value);
         
     }
  } 

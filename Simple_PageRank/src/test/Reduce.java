@@ -12,6 +12,7 @@ public class Reduce extends Reducer<LongWritable, Text, LongWritable, Text> {
    public void reduce(LongWritable key, Iterable<Text> values, Context context) 
      throws IOException, InterruptedException {
        float pr= 0;
+       float old_pr= 0;
        String receivingNodes = "";
        for (Text val : values) {
     	   StringTokenizer tokenizer = new StringTokenizer(val.toString());
@@ -24,7 +25,9 @@ public class Reduce extends Reducer<LongWritable, Text, LongWritable, Text> {
     	   if (nextToken.equals("pr")){
     		   pr+= Float.parseFloat(tokenizer.nextToken());
     	   } else {
-    		   receivingNodes+= nextToken;
+    		   //skip over node number; get page rank
+    		   nextToken= tokenizer.nextToken();
+    		   old_pr= Float.parseFloat(nextToken);
     		   while(tokenizer.hasMoreTokens()){
 	    		   receivingNodes+= " " + tokenizer.nextToken();
     		   }
