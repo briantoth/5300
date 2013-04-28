@@ -29,8 +29,8 @@ public class WordCount {
     
     System.out.println("Arg 0\t" + args[0]);
     System.out.println("Arg 1\t" + args[1]);
-    FileInputFormat.addInputPath(job, new Path(args[1]));
-    FileOutputFormat.setOutputPath(job, new Path(args[2]));
+    FileInputFormat.addInputPath(job, new Path(args[0]));
+    FileOutputFormat.setOutputPath(job, new Path(args[1]));
         
     job.waitForCompletion(true);
  }

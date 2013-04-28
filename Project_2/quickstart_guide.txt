@@ -36,7 +36,7 @@ Note that the second argument is where EMR will write the output to. For some re
 
 ------ 4) Start an EMR Job Flow ---------
 Use the command
-./elastic-mapreduce --create --alive
+./elastic-mapreduce --create --alive --enable-debug
 
 to create a new EMR Job Flow. I think it spits out the Job Flow id, but if it doesn't you can do ./elastic-mapreduce --list --active to list your active ones.
 
