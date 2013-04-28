@@ -15,6 +15,11 @@ public class Reduce extends Reducer<LongWritable, Text, LongWritable, Text> {
        String receivingNodes = "";
        for (Text val : values) {
     	   StringTokenizer tokenizer = new StringTokenizer(val.toString());
+    	   System.out.println(val.toString());
+    	   
+    	   if (!tokenizer.hasMoreTokens())
+    		   return;
+    		   
     	   String nextToken= tokenizer.nextToken();
     	   if (nextToken.equals("pr")){
     		   pr+= Float.parseFloat(tokenizer.nextToken());

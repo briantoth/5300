@@ -1,15 +1,15 @@
 [
    {
-      "Name": "WordCount",
+      "Name": "SimplePageRank",
       "ActionOnFailure": "CONTINUE",
       "HadoopJarStep":
       {
          "MainClass": "test.SimplePageRank",
-         "Jar": "s3n://bdt25-5300-mr/wc",
+         "Jar": "s3n://bdt25-5300-mr/pr",
          "Args":
          [
-            "s3n://bdt25-5300-mr/txt",
-            "s3n://bdt25-5300-mr/output1/",
+            "s3n://bdt25-5300-mr/small_edges",
+            "s3n://bdt25-5300-mr/output2/",
          ]
       }
    }
