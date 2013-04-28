@@ -21,13 +21,23 @@ public class Map extends Mapper<LongWritable, Text, LongWritable, Text> {
     public void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException {
         String line = value.toString();
         StringTokenizer tokenizer = new StringTokenizer(line);
+        System.out.println(line);
         
-        LongWritable nodeNum= new LongWritable(Long.getLong(tokenizer.nextToken()));
+        if (!tokenizer.hasMoreTokens())
+        	return;
+        
+        String tok= tokenizer.nextToken();
+        System.out.println(tok);
+        LongWritable nodeNum= new LongWritable(Long.parseLong(tok));
+        
+        if (!tokenizer.hasMoreTokens())
+        	return;
+        
         float pr= Float.parseFloat(tokenizer.nextToken());
         ArrayList<LongWritable> receivingNodes= new ArrayList<LongWritable>();
         
         while (tokenizer.hasMoreTokens()) {
-        	receivingNodes.add(new LongWritable(Long.getLong(tokenizer.nextToken())));
+        	receivingNodes.add(new LongWritable(Long.parseLong(tokenizer.nextToken())));
         }
         
         String allReceivingNodes= "";
