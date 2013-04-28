@@ -15,7 +15,7 @@ and output them in a file like:
 node_id [list of all nodes that link to this node]
 '''
 
-edges_filename = 'edges2.txt'
+edges_filename = 'edges.txt'
 out_filename = 'out.txt'
 #Using NetID wjk56
 #modified to make a smaller testing set
@@ -71,8 +71,6 @@ Note that for this bootstrap the page rank of every page will be
 '''
 
 initial_pagerank = 1.0 / len(nodes)
-print initial_pagerank
-print nodes
 for source, sinks in out_links.iteritems():
     line = str(source) + " "
     line+= "%0.10f " % initial_pagerank
@@ -82,6 +80,10 @@ for source, sinks in out_links.iteritems():
 
     out_file.write(line.strip() + "\n")
 
+all_nodes_string = ""
+for node in nodes:
+    all_nodes_string+= str(node) + " "
+
 # Now we need to check if there are any dangling pages.
 # Dangling pages would not be a key in the out_links dictionary
 # since by definition they have no out links. So we need
@@ -89,13 +91,14 @@ for source, sinks in out_links.iteritems():
 # are a dangling node by checking if they are a key in the out_links dict
 
 dangling_nodes = (node for node in nodes if node not in out_links)
+dangling_nodes = []
+
 for dangling_node in dangling_nodes:
     print dangling_node
     line = str(dangling_node) + " "
     line+= "%0.10f " % initial_pagerank
 
-    for node in nodes:
-        line+= str(node) + " "
+    line+= all_nodes_string
 
     out_file.write(line.strip() + "\n")
 
