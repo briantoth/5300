@@ -38,6 +38,8 @@ public class Reduce extends Reducer<LongWritable, Text, LongWritable, Text> {
     	   }
        }
        pr = (float) (DAMPING_FACTOR * pr + (1-DAMPING_FACTOR) / context.getCounter(CounterGroup.TOTAL_NODES).getValue());
+       float residual= Math.abs(old_pr - pr) / pr;
+       context.getCounter(CounterGroup.AVERAGE_RESIDUAL).setValue((long) (context.getCounter(CounterGroup.AVERAGE_RESIDUAL).getValue() + residual * 100000));
        context.write(key, new Text(key + " " + pr + " " + receivingNodes));
    }
 }

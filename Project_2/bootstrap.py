@@ -71,6 +71,8 @@ Note that for this bootstrap the page rank of every page will be
 '''
 
 initial_pagerank = 1.0 / len(nodes)
+
+
 for source, sinks in out_links.iteritems():
     line = str(source) + " "
     line+= "%0.10f " % initial_pagerank
@@ -94,7 +96,7 @@ dangling_nodes = (node for node in nodes if node not in out_links)
 dangling_nodes = []
 
 for dangling_node in dangling_nodes:
-    print dangling_node
+    #print dangling_node
     line = str(dangling_node) + " "
     line+= "%0.10f " % initial_pagerank
 
