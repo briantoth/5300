@@ -11,28 +11,28 @@ import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
         
 public class SimplePageRank {
-        
- public static void main(String[] args) throws Exception {
-    Configuration conf = new Configuration();
-        
-    Job job = new Job(conf, "SimplePageRank");
-    job.setJarByClass(SimplePageRank.class);
-    
-    job.setOutputKeyClass(LongWritable.class);
-    job.setOutputValueClass(Text.class);
-        
-    job.setMapperClass(Map.class);
-    job.setReducerClass(Reduce.class);
-        
-    job.setInputFormatClass(TextInputFormat.class);
-    job.setOutputFormatClass(TextOutputFormat.class);
-    
-    System.out.println("Arg 0\t" + args[0]);
-    System.out.println("Arg 1\t" + args[1]);
-    FileInputFormat.addInputPath(job, new Path(args[0]));
-    FileOutputFormat.setOutputPath(job, new Path(args[1]));
-        
-    job.waitForCompletion(true);
- }
+	static enum Counter {TOTAL_NODES, AVERAGE_RESIDUAL, NUM_RESIDUALS_IN_AVERAGE};
+	
+	public static void main(String[] args) throws Exception {
+		
+		Configuration conf = new Configuration();
+		Job job = new Job(conf, "SimplePageRank");
+		job.setJarByClass(SimplePageRank.class);
+		
+		job.setOutputKeyClass(LongWritable.class);
+		job.setOutputValueClass(Text.class);
+		    
+		job.setMapperClass(Map.class);
+		job.setReducerClass(Reduce.class);
+		    
+		job.setInputFormatClass(TextInputFormat.class);
+		job.setOutputFormatClass(TextOutputFormat.class);
+		
+		
+		FileInputFormat.addInputPath(job, new Path(args[0]));
+		FileOutputFormat.setOutputPath(job, new Path(args[1]));
+		    
+		job.waitForCompletion(true);
+	 }
         
 }
