@@ -11,7 +11,7 @@ import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
         
 public class SimplePageRank {
-	static enum Counter {TOTAL_NODES, AVERAGE_RESIDUAL, NUM_RESIDUALS_IN_AVERAGE};
+	static enum CounterGroup {TOTAL_NODES, AVERAGE_RESIDUAL, NUM_RESIDUALS_IN_AVERAGE};
 	
 	public static void main(String[] args) throws Exception {
 		

@@ -8,6 +8,8 @@ import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Mapper;
 
+import test.SimplePageRank.CounterGroup;
+
 public class Map extends Mapper<LongWritable, Text, LongWritable, Text> {
     @Override
     /**
@@ -48,10 +50,13 @@ public class Map extends Mapper<LongWritable, Text, LongWritable, Text> {
 	        context.write(n, new Text("pr " + pr/allReceivingNodes.length()));
         }
         
+
         context.write(nodeNum, new Text(allReceivingNodes));
-        context.getCounter(Counter.TOTAL_NODES).increment(1);
+        context.getCounter(CounterGroup.TOTAL_NODES).increment(1);
         //A line corresponds to a unique node, so to keep track
         //of how many nodes we have total we can just 
+        context.write(nodeNum, value);
+
         
     }
  } 
