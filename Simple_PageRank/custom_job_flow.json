@@ -1,0 +1,16 @@
+[
+   {
+      "Name": "WordCount",
+      "ActionOnFailure": "CONTINUE",
+      "HadoopJarStep":
+      {
+         "MainClass": "test.SimplePageRank",
+         "Jar": "s3n://bdt25-5300-mr/wc",
+         "Args":
+         [
+            "s3n://bdt25-5300-mr/txt",
+            "s3n://bdt25-5300-mr/output1/",
+         ]
+      }
+   }
+]
