@@ -139,7 +139,9 @@ public class Reduce extends Reducer<LongWritable, Text, LongWritable, Text> {
 		float finalTotalResid = 0.0f;
 		for(int v : initialPR.keySet())
 			finalTotalResid+= Math.abs(PR.get(v) - initialPR.get(v));
+		
 		float finalResid = finalTotalResid / initialPR.size();
+		
 		//Now what does the reducer need to emit?
 		//Mapper takes input:
 		//node_num node_block_num current_page_rank receiving_node1 receving_node1_block_num receiving_node2 receiving_node2_block_num ..
@@ -151,7 +153,7 @@ public class Reduce extends Reducer<LongWritable, Text, LongWritable, Text> {
 			}
 			
 			//TODO Figure out how to output correct form
-			//context.write(key, value)
+			context.write(key, new Text(line));
 		}
 		
    }
@@ -168,11 +170,18 @@ public class Reduce extends Reducer<LongWritable, Text, LongWritable, Text> {
 			NPR.put(v, 0.0f);
 		
 		for(int v : V) {
-			for(int u : BE.get(v)) 
-				NPR.put(v, NPR.get(v) + PR.get(u) / deg.get(u));
+			//TODO Reason about whether it should ever be the case
+			//that BE or BC do not contain v, since we've gotten
+			//null pointer exceptions for both
+			if(BE.containsKey(v)) {
+				for(int u : BE.get(v)) 
+					NPR.put(v, NPR.get(v) + PR.get(u) / deg.get(u));
+			}
 			
-			for(float R : BC.get(v))
-				NPR.put(v, NPR.get(v) + R);
+			if(BC.containsKey(v)) {
+				for(float R : BC.get(v))
+					NPR.put(v, NPR.get(v) + R);
+			}
 			
 			float npr = NPR.get(v);
 			npr = (float) (DAMPING_FACTOR * npr + (1-npr) / totalNodes);

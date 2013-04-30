@@ -92,7 +92,7 @@ public class Map extends Mapper<LongWritable, Text, LongWritable, Text> {
         	
         	if(! b.equals(blockNum)) {
         		//This is a boundary edge, so we need to emit some extra stuff
-        		context.write(b, new Text("boundary_edge " +  n + pr/allReceivingNodes.length()));
+        		context.write(b, new Text("boundary_edge " +  n + " " + pr/allReceivingNodes.length()));
         	}
         }
         

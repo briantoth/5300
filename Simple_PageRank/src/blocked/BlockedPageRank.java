@@ -1,5 +1,8 @@
 package blocked;
         
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
+
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.LongWritable;
@@ -23,31 +26,31 @@ public class BlockedPageRank {
 	 * @throws Exception
 	 */
 	public static void main(String[] args) throws Exception {
+		Calendar cal = Calendar.getInstance();
+    	SimpleDateFormat sdf = new SimpleDateFormat("HHmmss");
+    	String date = sdf.format(cal.getTime());
+    	
+		Configuration conf = new Configuration();
+		Job job = new Job(conf, "BlockedPageRank");
+		job.setJarByClass(BlockedPageRank.class);
 		
-		for(int i= 0; i < 5; i++){
+		job.setOutputKeyClass(LongWritable.class);
+		job.setOutputValueClass(Text.class);
+		    
+		job.setMapperClass(Map.class);
+		job.setReducerClass(Reduce.class);
+		    
+		job.setInputFormatClass(TextInputFormat.class);
+		job.setOutputFormatClass(TextOutputFormat.class);
 		
-			Configuration conf = new Configuration();
-			Job job = new Job(conf, "BlockedPageRank");
-			job.setJarByClass(BlockedPageRank.class);
-			
-			job.setOutputKeyClass(LongWritable.class);
-			job.setOutputValueClass(Text.class);
-			    
-			job.setMapperClass(Map.class);
-			job.setReducerClass(Reduce.class);
-			    
-			job.setInputFormatClass(TextInputFormat.class);
-			job.setOutputFormatClass(TextOutputFormat.class);
-			
-			
-			FileInputFormat.addInputPath(job, new Path("s3n://bdt25-5300-mr/output" + i + "/part-r-00000"));
-			FileOutputFormat.setOutputPath(job, new Path("s3n://bdt25-5300-mr/output" + (i+1) + "/part-r-00000"));
-			FileOutputFormat.setOutputPath(job, new Path(args[1]));
-			    
-			job.waitForCompletion(true);
-			float average_residual= job.getCounters().findCounter(CounterGroup.AVERAGE_RESIDUAL).getValue()/job.getCounters().findCounter(CounterGroup.TOTAL_NODES).getValue();
-			System.out.println("Average residual for run " + i + " is: " + average_residual);
-		}
+		
+		FileInputFormat.addInputPath(job, new Path("s3n://edu-cornell-cs-cs5300s13-wjk56-project2/out.txt"));
+		FileOutputFormat.setOutputPath(job, new Path("s3n://edu-cornell-cs-cs5300s13-wjk56-project2/output" + date + "/"));
+		    
+		job.waitForCompletion(true);
+		//float average_residual= job.getCounters().findCounter(CounterGroup.AVERAGE_RESIDUAL).getValue()/job.getCounters().findCounter(CounterGroup.TOTAL_NODES).getValue();
+		//System.out.println("Average residual for run " + i + " is: " + average_residual);
+
 	 }
         
 }
