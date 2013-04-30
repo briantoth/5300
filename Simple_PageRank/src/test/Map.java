@@ -31,23 +31,25 @@ public class Map extends Mapper<LongWritable, Text, LongWritable, Text> {
         System.out.println(tok);
         LongWritable nodeNum= new LongWritable(Long.parseLong(tok));
         
+//        if (!tokenizer.hasMoreTokens())
+//        	return;
+//        
+//        //skip bonus token
+//        tokenizer.nextToken();
+        
         if (!tokenizer.hasMoreTokens())
         	return;
         
-        float pr= Float.parseFloat(tokenizer.nextToken());
+        Double pr= Double.valueOf(tokenizer.nextToken());
         ArrayList<LongWritable> receivingNodes= new ArrayList<LongWritable>();
         
         while (tokenizer.hasMoreTokens()) {
         	receivingNodes.add(new LongWritable(Long.parseLong(tokenizer.nextToken())));
         }
         
-        String allReceivingNodes= "";
         for(LongWritable n : receivingNodes){
-        	//build up a list to send to the reducer.  
-        	//TODO: not sure if this is correct
-        	allReceivingNodes += n + " ";
         	//send out the weighted PR for this node
-	        context.write(n, new Text("pr " + pr/allReceivingNodes.length()));
+	        context.write(n, new Text("pr " + pr/receivingNodes.size()));
         }
         
         context.getCounter(CounterGroup.TOTAL_NODES).increment(1);
@@ -55,7 +57,7 @@ public class Map extends Mapper<LongWritable, Text, LongWritable, Text> {
         //of how many nodes we have total we can just 
         context.write(nodeNum, value);
         
-        System.out.println("Current total node count: " + context.getCounter(CounterGroup.TOTAL_NODES).getValue());
+        System.out.println("Current total node count: " + context.getCounter(SimplePageRank.CounterGroup.TOTAL_NODES).getValue());
 
         
     }

@@ -11,11 +11,12 @@ import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
         
 public class SimplePageRank {
-	public enum CounterGroup {TOTAL_NODES, AVERAGE_RESIDUAL};
+	public final static long NUMBER_OF_NODES = 685229;
+	public static enum CounterGroup {TOTAL_NODES, RESIDUAL_SUM};
 	
 	public static void main(String[] args) throws Exception {
 		
-		for(int i= 0; i < 1; i++){
+		for(int i= 0; i < 5; i++){
 		
 			Configuration conf = new Configuration();
 			Job job = new Job(conf, "SimplePageRank");
@@ -35,7 +36,14 @@ public class SimplePageRank {
 			FileOutputFormat.setOutputPath(job, new Path("s3n://bdt25-5300-mr/output" + (i+1) +"/"));
 			    
 			job.waitForCompletion(true);
-			float average_residual= job.getCounters().findCounter(CounterGroup.AVERAGE_RESIDUAL).getValue()/job.getCounters().findCounter(CounterGroup.TOTAL_NODES).getValue();
+//			long totalNodes= job.getCounters().findCounter(SimplePageRank.CounterGroup.TOTAL_NODES).getValue();
+//			System.out.println("totalNodes: " + totalNodes);
+			long totalNodes=  NUMBER_OF_NODES;
+			float residualSum= job.getCounters().findCounter(SimplePageRank.CounterGroup.RESIDUAL_SUM).getValue();
+			System.out.println("residualRandom: " + residualSum);
+			float average_residual= residualSum / totalNodes;
+			//undo decimal point removal
+			average_residual /= 100000;
 			System.out.println("Average residual for run " + i + " is: " + average_residual);
 		}
 	 }
