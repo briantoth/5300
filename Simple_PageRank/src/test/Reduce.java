@@ -27,7 +27,9 @@ public class Reduce extends Reducer<LongWritable, Text, LongWritable, Text> {
     		   
     	   String nextToken= tokenizer.nextToken();
     	   if (nextToken.equals("pr")){
-    		   pr+= Float.parseFloat(tokenizer.nextToken());
+    		   String received_pr= tokenizer.nextToken();
+    		   System.out.println("Received pr value: " + received_pr);
+    		   pr+= Float.parseFloat(received_pr);
     	   } else {
     		   //skip over node number; get page rank
     		   nextToken= tokenizer.nextToken();
@@ -37,7 +39,10 @@ public class Reduce extends Reducer<LongWritable, Text, LongWritable, Text> {
     		   }
     	   }
        }
-       pr = (float) (DAMPING_FACTOR * pr + (1-DAMPING_FACTOR) / context.getCounter(CounterGroup.TOTAL_NODES).getValue());
+       System.out.println("incoming pr sum: " + pr);
+       System.out.println("Current counter value: " + context.getCounter(CounterGroup.TOTAL_NODES).getValue());
+       pr = (float) (DAMPING_FACTOR * pr + (1-DAMPING_FACTOR) / (float) context.getCounter(CounterGroup.TOTAL_NODES).getValue());
+       System.out.println("New pr: " + pr);
        float residual= Math.abs(old_pr - pr) / pr;
        context.getCounter(CounterGroup.AVERAGE_RESIDUAL).setValue((long) (context.getCounter(CounterGroup.AVERAGE_RESIDUAL).getValue() + residual * 100000));
        context.write(key, new Text(key + " " + pr + " " + receivingNodes));
