@@ -1,11 +1,11 @@
 [
    {
-      "Name": "PageRank",
+      "Name": "PageRankEC",
       "ActionOnFailure": "CONTINUE",
       "HadoopJarStep":
       {
          "MainClass": "blocked.BlockedPageRank",
-         "Jar": "s3n://edu-cornell-cs-cs5300s13-wjk56-project2/PageRank.jar",
+         "Jar": "s3n://edu-cornell-cs-cs5300s13-wjk56-project2/PageRankEC.jar",
          "Args":
          [
             "s3n://edu-cornell-cs-cs5300s13-wjk56-project2/out.txt",

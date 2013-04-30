@@ -1,0 +1,31 @@
+After Iteration 0
+    Total Iterations: 654
+    Number blocks: 68
+    Total Residual: 28.33959
+    Average Iterations: 9.617647
+    Average Residual: 0.4167587
+After Iteration 1
+    Total Iterations: 566
+    Number blocks: 68
+    Total Residual: 3.2141
+    Average Iterations: 8.323529
+    Average Residual: 0.047266174
+After Iteration 2
+    Total Iterations: 312
+    Number blocks: 68
+    Total Residual: 0.52046
+    Average Iterations: 4.5882354
+    Average Residual: 0.0076538236
+After Iteration 3
+    Total Iterations: 99
+    Number blocks: 68
+    Total Residual: 0.09038
+    Average Iterations: 1.4558823
+    Average Residual: 0.0013291176
+After Iteration 4
+    Total Iterations: 87
+    Number blocks: 68
+    Total Residual: 0.06595
+    Average Iterations: 1.2794118
+    Average Residual: 9.698529E-4
+Convergence has been reached after iteration 4 ....stopping.

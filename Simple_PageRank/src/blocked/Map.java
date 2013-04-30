@@ -8,16 +8,13 @@ import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Mapper;
 
-import blocked.BlockedPageRank.CounterGroup;
-
 public class Map extends Mapper<LongWritable, Text, LongWritable, Text> {
     @Override
     /**
-     * TODO Change this from SimplePageRank
      * 
      * ************** New BlockedPageRank Map Comment
-     * Input is "node_num node_block_num current_page_rank receiving_node1 receving_node1_block_num 
-     * 			 receiving_node2 receiving_node2_block_num ..."
+     * Input is "dummy_value node_num node_block_num current_page_rank receiving_node1 
+     * 			 receving_node1_block_num receiving_node2 receiving_node2_block_num ..."
      * 
      * Mapper must send the following information to the reducer (From assignment page):
      *  1) The set of vertices of its Block, with their current PageRank values 
@@ -28,6 +25,7 @@ public class Map extends Mapper<LongWritable, Text, LongWritable, Text> {
 	 *  NOTE: The keys for everything outputted are block_numbers, NOT node_numbers
 	 *  Outputted is
 	 *  
+	 * 
 	 *  key: node_block_num
 	 *  value:  node_info node_num pr receiving_node1 receiving_node1_block_num receiving_node2 receiving_node_block_num2...
 	 *   --> This corresponds to (1) from above. We include the block numbers for each receiving node so that
@@ -51,6 +49,10 @@ public class Map extends Mapper<LongWritable, Text, LongWritable, Text> {
         
         if (!tokenizer.hasMoreTokens())
         	return;
+        
+        //The first value is a dummy value since the output of
+        //the reducer is 'key' 'actual value' and we only care about the actual value
+        tokenizer.nextToken();
         
         String nodeNumString= tokenizer.nextToken();
         System.out.println("Node number is: " + nodeNumString);
@@ -108,7 +110,6 @@ public class Map extends Mapper<LongWritable, Text, LongWritable, Text> {
         */
         
         context.write(blockNum, new Text("node_info " + nodeNum + " " + pr + " " + allReceivingNodes));
-        context.getCounter(CounterGroup.TOTAL_NODES).increment(1);
         
     }
  } 

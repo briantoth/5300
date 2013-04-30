@@ -22,12 +22,10 @@ edges_filename = 'edges.txt'
 nodes_filename = 'nodes.txt'
 out_filename = 'out.txt'
 #Using NetID wjk56
-#modified to make a smaller testing set
-#from_net_id = 0.65;
-#reject_min = 0.99 * from_net_id;
-#reject_max = reject_min + 0.01;
-reject_min= .1
-reject_max= .8
+from_net_id = 0.65;
+reject_min = 0.99 * from_net_id;
+reject_max = reject_min + 0.01;
+
 
 def accept(random_float):
     return not (reject_min <= random_float <= reject_max)
@@ -92,7 +90,7 @@ initial_pagerank = 1.0 / total_nodes
 
 
 for source, sinks in out_links.iteritems():
-    line = str(source) + " "
+    line = "0 " + str(source) + " "
 
     if include_block_nums:
         line+= str(node_to_block[source]) + " "
@@ -123,7 +121,7 @@ dangling_nodes = []
 
 for dangling_node in dangling_nodes:
     #print dangling_node
-    line = str(dangling_node) + " "
+    line = "0 " +  str(dangling_node) + " "
     if include_block_nums:
         line+= str(node_to_block[source]) + " "
     line+= "%0.10f " % initial_pagerank
@@ -132,4 +130,4 @@ for dangling_node in dangling_nodes:
 
     out_file.write(line.strip() + "\n")
 
-
+print 'Total Nodes ', total_nodes
