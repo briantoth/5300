@@ -3,3 +3,6 @@ Servers
 Project_1/build
 bin
 *~
+edges.txt
+nodes.txt
+out.txt

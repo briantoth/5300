@@ -23,11 +23,11 @@ nodes_filename = 'nodes.txt'
 out_filename = 'out.txt'
 #Using NetID wjk56
 #modified to make a smaller testing set
-#from_net_id = 0.65;
-#reject_min = 0.99 * from_net_id;
-#reject_max = reject_min + 0.01;
-reject_min= .1
-reject_max= .8
+from_net_id = 0.65;
+reject_min = 0.99 * from_net_id;
+reject_max = reject_min + 0.01;
+#reject_min= .1
+#reject_max= .8
 
 def accept(random_float):
     return not (reject_min <= random_float <= reject_max)
@@ -63,6 +63,9 @@ if len(sys.argv) > 1:
         node = int(node)
         block_num = int(block_num)
         node_to_block[node] = block_num
+else:
+    include_block_nums= False
+
 
 
 out_file = open(out_filename, 'w')
