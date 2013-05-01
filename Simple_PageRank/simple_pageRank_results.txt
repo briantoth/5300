@@ -1,0 +1,10 @@
+Average residual for run 0 is: 2.3274505
+Average residual for run 1 is: 0.32306653
+Average residual for run 2 is: 0.19216941
+Average residual for run 3 is: 0.09415669
+Average residual for run 4 is: 0.06289683
+Average residual for run 5 is: 0.03395471
+Average residual for run 6 is: 0.02724314
+Average residual for run 7 is: 0.016586049
+Average residual for run 8 is: 0.014373778
+Average residual for run 9 is: 0.009768329

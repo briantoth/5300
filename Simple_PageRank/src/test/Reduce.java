@@ -25,29 +25,33 @@ public class Reduce extends Reducer<LongWritable, Text, LongWritable, Text> {
     		   return;
     		   
     	   String tok= tokenizer.nextToken();
+    	   
+    	   //handle the 'normal' type of input which tells us the PageRank of a node that points to us
     	   if (tok.equals("pr")){
     		   String received_pr= tokenizer.nextToken();
     		   System.out.println("Received pr value: " + received_pr);
     		   pr+= Double.valueOf(received_pr);
+    	   // read out information about outgoing edges (necessary to produce output) and old page_rank
     	   } else {
     		   //skip over node number; get page rank
     		   tok= tokenizer.nextToken();
     		   old_pr= Double.valueOf(tok);
-    		   System.out.println("Old pr= " + old_pr);
     		   while(tokenizer.hasMoreTokens()){
 	    		   receivingNodes+= " " + tokenizer.nextToken();
     		   }
     	   }
        }
-       System.out.println("incoming pr sum: " + pr);
        org.apache.hadoop.mapreduce.Counter residualSum= context.getCounter(SimplePageRank.CounterGroup.RESIDUAL_SUM);
+       
+       //compute the new PageRank
        pr = (double) (DAMPING_FACTOR * pr + (1-DAMPING_FACTOR) / (double) SimplePageRank.NUMBER_OF_NODES );
-       System.out.println("New pr: " + pr);
+       
+       //compute the residual and add it to the other residuals from this iteration
        double residual= Math.abs(old_pr - pr) / pr;
        residualSum.setValue((long) ((long) residualSum.getValue() + residual * 100000));
-       System.out.println("key: " + key);
        Text value= new Text(pr + receivingNodes);
-       System.out.println("value: " + value);
+       
+       //output the result to be used by the next mapper
        context.write(key, value);
    }
 }

@@ -22,24 +22,18 @@ public class Map extends Mapper<LongWritable, Text, LongWritable, Text> {
     public void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException {
         String line = value.toString();
         StringTokenizer tokenizer = new StringTokenizer(line);
-        System.out.println(line);
         
         if (!tokenizer.hasMoreTokens())
         	return;
         
+        //get our node number
         String tok= tokenizer.nextToken();
-        System.out.println(tok);
         LongWritable nodeNum= new LongWritable(Long.parseLong(tok));
         
-//        if (!tokenizer.hasMoreTokens())
-//        	return;
-//        
-//        //skip bonus token
-//        tokenizer.nextToken();
-        
         if (!tokenizer.hasMoreTokens())
         	return;
         
+        //get pagerank
         Double pr= Double.valueOf(tokenizer.nextToken());
         ArrayList<LongWritable> receivingNodes= new ArrayList<LongWritable>();
         
@@ -52,13 +46,10 @@ public class Map extends Mapper<LongWritable, Text, LongWritable, Text> {
 	        context.write(n, new Text("pr " + pr/receivingNodes.size()));
         }
         
+        //A line corresponds to a unique node, so to keep track 
         context.getCounter(CounterGroup.TOTAL_NODES).increment(1);
-        //A line corresponds to a unique node, so to keep track
-        //of how many nodes we have total we can just 
+        
+        //send out information about old pagerank and edges which we link to
         context.write(nodeNum, value);
-        
-        System.out.println("Current total node count: " + context.getCounter(SimplePageRank.CounterGroup.TOTAL_NODES).getValue());
-
-        
     }
  } 

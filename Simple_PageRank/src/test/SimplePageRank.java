@@ -16,6 +16,7 @@ public class SimplePageRank {
 	
 	public static void main(String[] args) throws Exception {
 		
+		//perform N iterations (N is 5 here)
 		for(int i= 0; i < 5; i++){
 		
 			Configuration conf = new Configuration();
@@ -31,16 +32,14 @@ public class SimplePageRank {
 			job.setInputFormatClass(TextInputFormat.class);
 			job.setOutputFormatClass(TextOutputFormat.class);
 			
-			
+			//chain together the input and output files
 			FileInputFormat.addInputPath(job, new Path("s3n://bdt25-5300-mr/output" + i + "/part-r-00000"));
 			FileOutputFormat.setOutputPath(job, new Path("s3n://bdt25-5300-mr/output" + (i+1) +"/"));
 			    
 			job.waitForCompletion(true);
-//			long totalNodes= job.getCounters().findCounter(SimplePageRank.CounterGroup.TOTAL_NODES).getValue();
-//			System.out.println("totalNodes: " + totalNodes);
 			long totalNodes=  NUMBER_OF_NODES;
+			//Compute the average residual for the last run
 			float residualSum= job.getCounters().findCounter(SimplePageRank.CounterGroup.RESIDUAL_SUM).getValue();
-			System.out.println("residualRandom: " + residualSum);
 			float average_residual= residualSum / totalNodes;
 			//undo decimal point removal
 			average_residual /= 100000;
