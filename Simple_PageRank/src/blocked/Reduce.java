@@ -12,8 +12,6 @@ import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Reducer;
 
-import blocked.BlockedPageRank.CounterGroup;
-
 public class Reduce extends Reducer<LongWritable, Text, LongWritable, Text> {
 	private static final float EPSILON = 0.001f;
 	private static final int MAX_ITERATIONS = 10;
@@ -21,7 +19,6 @@ public class Reduce extends Reducer<LongWritable, Text, LongWritable, Text> {
 	
 	@Override
 	/**
-	 * TODO Change this from SimplePageRank reduce
 	 * 
 	 * Input is in the form
 	 * key: block_num
@@ -54,20 +51,18 @@ public class Reduce extends Reducer<LongWritable, Text, LongWritable, Text> {
 		Map<Integer, Integer> blockMap = new HashMap<Integer, Integer>();
 		Map<Integer, HashSet<Integer>> outLinks = new HashMap<Integer, HashSet<Integer>>();
 		Map<Integer, Integer> deg = new HashMap<Integer, Integer>();
-		int totalNodes = 600000; //TODO Fix this
+		long totalNodes = BlockedPageRank.TOTAL_NODES;
 		
 		int blockNum = Integer.parseInt(key.toString());
 		System.out.println("Block number is: " + blockNum);
 		
 		for(Text value : values) {
 			StringTokenizer tokenizer = new StringTokenizer(value.toString());
-			System.out.println("\tValue: " + value.toString());
 			
 			if(! tokenizer.hasMoreTokens())
 				return;
 			
 			String valueType = tokenizer.nextToken();
-			System.out.println("\tValue type: " + valueType);
 			if(valueType.equals("node_info")) {
 				//Remainder of the input is of the form:
 				//node_num pagerank w1 w1_block_num w2 w2 block_num ...
@@ -109,40 +104,54 @@ public class Reduce extends Reducer<LongWritable, Text, LongWritable, Text> {
 					BC.put(receivingNodeNum, new ArrayList<Float>());
 				
 				BC.get(receivingNodeNum).add(boundaryEdgePR);
-			} else {
+			} 
+			else {
 				System.err.println("ERROR::Invalid value type for line : " + value.toString() + "\nValue type was: " + valueType);
 			}
 		}
 		
+		if(totalNodes == -1) {
+			System.err.println("ERROR:: Total nodes in reducer was -1\nLine was " + values.toString());
+		} else {
+			System.out.println("Total nodes in reducer was " + totalNodes);
+		}
 		//Now that we built these stupid data structures we need
 		//to iterate over the nodes in this block recalculating their
 		//page rank until the blocks converge
 		
 		Map<Integer, Float> NPR, initialPR;
 		
-		float averageResid;
+		double averageResid;
 		int numIterations = 0;
 		initialPR = PR;
 		do {
 			NPR = iterateBlockOnce(PR, BE, BC, deg, totalNodes);
-			float totalResid = 0.0f;
+			double totalResid = 0.0;
 			numIterations+= 1;
 			
 			//Calculate residuals for this iteration
 			for(int v : PR.keySet()) 
-				totalResid+= Math.abs(PR.get(v) - NPR.get(v));
+				totalResid+= Math.abs(PR.get(v) - NPR.get(v)) / NPR.get(v);
 			
 			averageResid = totalResid / PR.size();
+			System.out.println("Average Residual after block iteration " + averageResid);
 			PR = NPR;
 		} while(averageResid > EPSILON && numIterations < MAX_ITERATIONS);
 		
 		float finalTotalResid = 0.0f;
 		for(int v : initialPR.keySet())
-			finalTotalResid+= Math.abs(PR.get(v) - initialPR.get(v));
+			finalTotalResid+= Math.abs(PR.get(v) - initialPR.get(v)) / PR.get(v);
+		
 		float finalResid = finalTotalResid / initialPR.size();
+		System.out.println("Final Residual after block convergence " + finalResid);
+		
 		//Now what does the reducer need to emit?
 		//Mapper takes input:
 		//node_num node_block_num current_page_rank receiving_node1 receving_node1_block_num receiving_node2 receiving_node2_block_num ..
+		
+		context.getCounter(BlockedPageRank.CounterGroup.NUMBER_BLOCKS).increment(1);
+		context.getCounter(BlockedPageRank.CounterGroup.TOTAL_ITERATIONS).increment(numIterations);
+		context.getCounter(BlockedPageRank.CounterGroup.TOTAL_RESIDUAL).increment((long) (finalResid * 100000));
 		
 		for(int v : PR.keySet()) {
 			String line = "" + v + " " + key.toString() + " " + PR.get(v) + " ";
@@ -150,8 +159,7 @@ public class Reduce extends Reducer<LongWritable, Text, LongWritable, Text> {
 				line+= sink + " " + blockMap.get(sink) + " ";
 			}
 			
-			//TODO Figure out how to output correct form
-			//context.write(key, value)
+			context.write(key, new Text(line));
 		}
 		
    }
@@ -168,11 +176,15 @@ public class Reduce extends Reducer<LongWritable, Text, LongWritable, Text> {
 			NPR.put(v, 0.0f);
 		
 		for(int v : V) {
-			for(int u : BE.get(v)) 
-				NPR.put(v, NPR.get(v) + PR.get(u) / deg.get(u));
+			if(BE.containsKey(v)) {
+				for(int u : BE.get(v)) 
+					NPR.put(v, NPR.get(v) + PR.get(u) / deg.get(u));
+			}
 			
-			for(float R : BC.get(v))
-				NPR.put(v, NPR.get(v) + R);
+			if(BC.containsKey(v)) {
+				for(float R : BC.get(v))
+					NPR.put(v, NPR.get(v) + R);
+			}
 			
 			float npr = NPR.get(v);
 			npr = (float) (DAMPING_FACTOR * npr + (1-npr) / totalNodes);

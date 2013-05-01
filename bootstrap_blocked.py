@@ -22,14 +22,10 @@ edges_filename = 'edges.txt'
 nodes_filename = 'nodes.txt'
 out_filename = 'out.txt'
 #Using NetID wjk56
-#modified to make a smaller testing set
 from_net_id = 0.65;
 reject_min = 0.99 * from_net_id;
 reject_max = reject_min + 0.01;
-total_edges= 0
-num_native_edges= 0
-#reject_min= .1
-#reject_max= .8
+
 
 def accept(random_float):
     return not (reject_min <= random_float <= reject_max)
@@ -45,7 +41,6 @@ for line in open(edges_filename, 'r'):
     random_float = float(random_float)
 
     if accept(random_float):
-        num_native_edges += 1
         source_out_links = out_links.get(source, list())
         source_out_links.append(sink)
         out_links[source] = source_out_links
@@ -57,7 +52,6 @@ for line in open(edges_filename, 'r'):
         nodes.add(source)
         nodes.add(sink)
 
-total_edges= num_native_edges
 node_to_block = {}
 if len(sys.argv) > 1:
     include_block_nums = True
@@ -67,9 +61,6 @@ if len(sys.argv) > 1:
         node = int(node)
         block_num = int(block_num)
         node_to_block[node] = block_num
-else:
-    include_block_nums= False
-
 
 
 out_file = open(out_filename, 'w')
@@ -99,7 +90,7 @@ initial_pagerank = 1.0 / total_nodes
 
 
 for source, sinks in out_links.iteritems():
-    line = str(source) + " "
+    line = "0 " + str(source) + " "
 
     if include_block_nums:
         line+= str(node_to_block[source]) + " "
@@ -130,15 +121,13 @@ dangling_nodes = []
 
 for dangling_node in dangling_nodes:
     #print dangling_node
-    line = str(dangling_node) + " "
+    line = "0 " +  str(dangling_node) + " "
     if include_block_nums:
         line+= str(node_to_block[source]) + " "
     line+= "%0.10f " % initial_pagerank
 
     line+= all_nodes_string
-    total_edges += len(nodes)
 
     out_file.write(line.strip() + "\n")
 
-print "Number of native edges: " + str(num_native_edges)
-print "Number of total edges: " + str(total_edges)
+print 'Total Nodes ', total_nodes
